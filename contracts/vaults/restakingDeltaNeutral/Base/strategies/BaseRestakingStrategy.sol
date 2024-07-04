@@ -3,21 +3,21 @@ pragma solidity ^0.8.19;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
-import "../../../../interfaces/IWithdrawRestakingPool.sol";
-import "../../../../interfaces/IWithdrawRestakingPool.sol";
+import "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 import "../../../../extensions/RockOnyxAccessControl.sol";
 import "../../../../extensions/Uniswap/Uniswap.sol";
 import "./../../Base/BaseSwapVault.sol";
 import "../../structs/RestakingDeltaNeutralStruct.sol";
 import "hardhat/console.sol";
 
-abstract contract BaseRestakingStrategy is BaseSwapVault, RockOnyxAccessControl, ReentrancyGuard {
-    IERC20 usdcToken;
-    IERC20 ethToken;
+abstract contract BaseRestakingStrategy is BaseSwapVault, RockOnyxAccessControl, ReentrancyGuardUpgradeable {
+    uint64 internal constant ARBTRIUM_NETWORK = 42161;
+    uint64 internal constant ETHEREUM_NETWORK = 1;
+    IERC20 internal usdcToken;
+    IERC20 internal ethToken;
     IERC20 internal restakingToken;
-    address[] internal restakingPoolAddresses;
     EthRestakingState internal restakingState;
+    uint64 internal network;
 
     // Events
     event Deposited(address indexed proxy, uint256 amount);
@@ -33,11 +33,13 @@ abstract contract BaseRestakingStrategy is BaseSwapVault, RockOnyxAccessControl,
         address _swapAddress,
         address[] memory _token0s,
         address[] memory _token1s,
-        uint24[] memory _fees
+        uint24[] memory _fees,
+        uint64 _network
     ) internal virtual {
         usdcToken = IERC20(_usdcAddress);
         ethToken = IERC20(_ethAddress);
         restakingToken = IERC20(_restakingToken);
+        network = _network;
         baseSwapVault_Initialize(_swapAddress, _token0s, _token1s, _fees);
     }
 
@@ -54,7 +56,6 @@ abstract contract BaseRestakingStrategy is BaseSwapVault, RockOnyxAccessControl,
         require(restakingState.unAllocatedBalance > 0, "INSUFICIENT_BALANCE");
 
         usdcToken.approve(address(swapProxy), restakingState.unAllocatedBalance);
-       
         uint256 usedUsdAmount = swapProxy.swapToWithOutput(
             address(this),
             address(usdcToken),

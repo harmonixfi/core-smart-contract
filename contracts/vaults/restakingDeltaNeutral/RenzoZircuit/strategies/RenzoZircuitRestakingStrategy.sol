@@ -3,6 +3,7 @@ pragma solidity ^0.8.19;
 
 import "../../../../interfaces/IRenzoRestakeProxy.sol";
 import "../../../../interfaces/IZircuitRestakeProxy.sol";
+import "../../../../interfaces/IWithdrawRestakingPool.sol";
 import "../../../../interfaces/IWETH.sol";
 import "./../../Base/strategies/BaseRestakingStrategy.sol";
 import "./../../Base/BaseSwapVault.sol";
@@ -18,16 +19,17 @@ contract RenzoZircuitRestakingStrategy is BaseRestakingStrategy {
         address _restakingToken,
         address _usdcAddress,
         address _ethAddress,
-        address[] memory _restakingPoolAddresses,
+        address[] memory _restakingProxies,
         address _swapAddress,
         address[] memory _token0s,
         address[] memory _token1s,
-        uint24[] memory _fees
+        uint24[] memory _fees,
+        uint64 _network
     ) internal {
-        super.ethRestaking_Initialize(_restakingToken, _usdcAddress, _ethAddress, _swapAddress, _token0s, _token1s, _fees);
+        super.ethRestaking_Initialize(_restakingToken, _usdcAddress, _ethAddress, _swapAddress, _token0s, _token1s, _fees, _network);
 
-        renzoRestakeProxy = IRenzoRestakeProxy(_restakingPoolAddresses[0]);
-        zircuitRestakeProxy = IZircuitRestakeProxy(_restakingPoolAddresses[1]);
+        renzoRestakeProxy = IRenzoRestakeProxy(_restakingProxies[0]);
+        zircuitRestakeProxy = IZircuitRestakeProxy(_restakingProxies[1]);
     }
 
     function syncRestakingBalance() internal override{
@@ -43,12 +45,11 @@ contract RenzoZircuitRestakingStrategy is BaseRestakingStrategy {
     function depositToRestakingProxy(uint256 ethAmount) internal override {
         if(address(renzoRestakeProxy) != address(0)) {
             IWETH(address(ethToken)).withdraw(ethAmount);
-
-            // arbitrum
-            // renzoRestakeProxy.depositETH{value: ethAmount}(0, block.timestamp + 10 seconds);
-
-            // ethereum
-            renzoRestakeProxy.depositETH{value: ethAmount}();
+            if(network == ARBTRIUM_NETWORK){
+                renzoRestakeProxy.depositETH{value: ethAmount}(0, block.timestamp + 10 seconds);
+            }else if(network == ETHEREUM_NETWORK){
+                renzoRestakeProxy.depositETH{value: ethAmount}();
+            }
         }else{
             ethToken.approve(address(swapProxy), ethAmount);
             swapProxy.swapTo(
@@ -67,22 +68,35 @@ contract RenzoZircuitRestakingStrategy is BaseRestakingStrategy {
     }
 
     function withdrawFromRestakingProxy(uint256 ethAmount) internal override {
-        
-        uint256 stakingTokenAmount = swapProxy.getAmountInMaximum(address(restakingToken), address(ethToken), ethAmount);
+        uint256 reTokenMaximum = swapProxy.getAmountInMaximum(address(restakingToken), address(ethToken), ethAmount);
+        uint256 reTokenBalance = restakingToken.balanceOf(address(this));
 
         if(address(zircuitRestakeProxy) != address(0)){
-            zircuitRestakeProxy.withdraw(address(restakingToken), stakingTokenAmount);
+            uint256 reTokenZircuitBalance = zircuitRestakeProxy.balance(address(restakingToken), address(this));
+            reTokenBalance = reTokenZircuitBalance > reTokenMaximum ? reTokenMaximum: reTokenZircuitBalance;
+            zircuitRestakeProxy.withdraw(address(restakingToken), reTokenBalance);
         }
-
-        if(address(renzoRestakeProxy) != address(0) && address(renzoWithdrawRestakingPool) != address(0)) {
-            restakingToken.approve(address(swapProxy), stakingTokenAmount);
-            renzoWithdrawRestakingPool.withdraw(address(restakingToken), stakingTokenAmount);
+        
+        if(address(renzoRestakeProxy) != address(0) && address(renzoWithdrawRestakingPool) != address(0)) {        
+            restakingToken.approve(address(renzoWithdrawRestakingPool), reTokenBalance);
+            renzoWithdrawRestakingPool.withdraw(address(restakingToken), reTokenBalance);
         }else{
-            restakingToken.approve(address(swapProxy), stakingTokenAmount);
-            swapProxy.swapToWithOutput(
+            restakingToken.approve(address(swapProxy), reTokenBalance);
+            if(reTokenMaximum <= reTokenBalance){
+                swapProxy.swapToWithOutput(
+                    address(this),
+                    address(restakingToken),
+                    ethAmount,
+                    address(ethToken),
+                    getFee(address(restakingToken), address(ethToken))
+                );
+                return;
+            }
+
+            swapProxy.swapTo(
                 address(this),
                 address(restakingToken),
-                ethAmount,
+                reTokenBalance,
                 address(ethToken),
                 getFee(address(restakingToken), address(ethToken))
             );
