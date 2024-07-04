@@ -37,7 +37,7 @@ contract Solv is IERC721Receiver, ReentrancyGuard {
             _poolId,
             _currentcyAmount,
             _openFundShareId,
-            uint64(block.timestamp)
+            uint64(block.timestamp + 180)
         );
     }
 
