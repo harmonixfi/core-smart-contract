@@ -251,6 +251,10 @@ export const RENZO_TOKEN_HOLDER_ADDRESS: { [key in CHAINID]?: string } = {
   [CHAINID.ARBITRUM_MAINNET]: "",
 };
 
+export const WBTC_ADDRESS: { [key in CHAINID]?: string } = {
+    [CHAINID.ARBITRUM_MAINNET]: '0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f',
+};
+
 export const NETWORK_COST: { [key in CHAINID]?: string } = {
   [CHAINID.ETH_MAINNET]: "5",
   [CHAINID.ETH_SEPOLIA]: "5",
