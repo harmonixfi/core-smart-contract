@@ -6,6 +6,7 @@ import "../../interfaces/Solv/SolvStruct.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
+import "hardhat/console.sol";
 
 contract Solv is IERC721Receiver, ReentrancyGuard {
     ISolv private SOLV;
@@ -13,28 +14,32 @@ contract Solv is IERC721Receiver, ReentrancyGuard {
     uint256 private currentcyAmount;
     uint256 private openFundShareId;
     uint64 private expireTime;
+    IERC20 private wbtc;
 
     mapping(address => UserDepositSolv) private user;
 
-    constructor(address _solvAddress) {
+    constructor(address _solvAddress, address _wbtcAddress) {
         SOLV = ISolv(_solvAddress);
+        wbtc = IERC20(_wbtcAddress);
     }
 
     function subscribe(
-        address _asset,
         bytes32 _poolId,
         uint256 _currentcyAmount,
         uint256 _openFundShareId
     ) external nonReentrant {
+        console.log("current amount 1 ", _currentcyAmount);
         require(_currentcyAmount > 0, "INVALID_SUBSCRIBE_AMOUNT");
         //deposit to vault
-        IERC20(_asset).transferFrom(msg.sender, address(this), _currentcyAmount);
-        IERC20(_asset).approve(address(SOLV), _currentcyAmount);
+        IERC20(wbtc).approve(address(this), _currentcyAmount);
+        IERC20(wbtc).transferFrom(msg.sender, address(this), _currentcyAmount);
+        IERC20(wbtc).approve(address(SOLV), _currentcyAmount);
         user[msg.sender].owner = msg.sender;
         user[msg.sender].poolId = _poolId;
         user[msg.sender].currentcyAmount += _currentcyAmount;
+        console.log("current amount ", IERC20(wbtc).balanceOf(address(this)));
         SOLV.subscribe(
-            _poolId,
+            0x3b2232fb5309e89e5ee6e2ca6066bcc28ee365045e9a565040bf8c846b87477e,
             _currentcyAmount,
             _openFundShareId,
             uint64(block.timestamp + 180)
