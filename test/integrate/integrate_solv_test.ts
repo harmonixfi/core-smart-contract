@@ -7,9 +7,13 @@ import {
     WBTC_IMPERSONATED_SIGNER_ADDRESS
 } from "../../constants";
 import { BigNumberish, Signer } from 'ethers';
+import { expect } from "chai";
 const { BigNumber } = require('ethers');
 const hre = require('hardhat');
 const chainId: CHAINID = network.config.chainId;
+const poolId = "0x3b2232fb5309e89e5ee6e2ca6066bcc28ee365045e9a565040bf8c846b87477e";
+const openFundShareId = 0;
+const currentCyAmount = 1 * 1e8;
 
 console.log("chainId: ", chainId);
 
@@ -57,7 +61,19 @@ describe("Integrate with Solv", async () => {
         });
     })
 
-    it('Subscribe wbtc', async () => {
+    it("Should revert if currency amount equal zero", async () => {
+        await expect(
+            solvContract
+                .connect(admin)
+                .subscribe(
+                    '0x3b2232fb5309e89e5ee6e2ca6066bcc28ee365045e9a565040bf8c846b87477e',
+                    0,
+                    0
+                )
+        ).to.be.revertedWith('INVALID_SUBSCRIBE_AMOUNT');
+    })
+
+    it('Subscribe wbtc - happy part', async () => {
         console.log('--------subscribe wbtc with solv--------');
         const wbtcSigner = await ethers.getSigner(wbtcImpersonatedSigner);
 
@@ -72,11 +88,24 @@ describe("Integrate with Solv", async () => {
             'Subscribe wbtc => balance admin: ', balance
         );
 
+        await wbtc.connect(admin).approve(solvContract.getAddress(), 1 * 1e8);
+
         //subscribe to solv
-        await solvContract.subscribe(
-            "0x3b2232fb5309e89e5ee6e2ca6066bcc28ee365045e9a565040bf8c846b87477e",
-            1 * 1e8,
-            0
+        await solvContract.connect(admin).subscribe(
+            poolId,
+            currentCyAmount,
+            openFundShareId
         );
+
+        const solvBalance = await wbtc.balanceOf(solvContract.getAddress());
+
+        //before run test this case, change user in contract to public
+        const user = await solvContract.user(admin.getAddress())
+
+        expect(solvBalance).to.equal(0);
+        expect(user.owner).to.equal(await admin.getAddress());
+        expect(user.poolId).to.equal(poolId);
+        expect(user.currentcyAmount).to.equal(currentCyAmount);
+        // console.log('NINVB => open fun share id ', await solvContract.getOpenFundShareId(admin.getAddress(), user.tokenId));
     });
 })

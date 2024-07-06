@@ -6,4 +6,5 @@ struct UserDepositSolv {
     bytes32 poolId;
     mapping(uint256 => address) openFundShareId;
     uint256 currentcyAmount;
+    uint256 tokenId;
 }
