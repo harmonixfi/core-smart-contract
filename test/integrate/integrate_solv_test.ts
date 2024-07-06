@@ -106,6 +106,8 @@ describe("Integrate with Solv", async () => {
         expect(user.owner).to.equal(await admin.getAddress());
         expect(user.poolId).to.equal(poolId);
         expect(user.currentcyAmount).to.equal(currentCyAmount);
-        // console.log('NINVB => open fun share id ', await solvContract.getOpenFundShareId(admin.getAddress(), user.tokenId));
+        
+        console.log("NINVB => support ", await solvContract.supportsInterface());
+        
     });
 })
