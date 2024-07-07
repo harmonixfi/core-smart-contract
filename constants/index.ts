@@ -263,6 +263,11 @@ export const SOLV_ADDRESS: { [key in CHAINID]?: string } = {
   [CHAINID.ARBITRUM_MAINNET]: "0x629aD7Bc14726e9cEA4FCb3A7b363D237bB5dBE8"
 }
 
+export const GOEFS_ADDRESS: { [key in CHAINID]?: string } = {
+  [CHAINID.ARBITRUM_MAINNET]: "0x22799DAA45209338B7f938edf251bdfD1E6dCB32"
+}
+
+
 export const NETWORK_COST: { [key in CHAINID]?: string } = {
   [CHAINID.ETH_MAINNET]: "5",
   [CHAINID.ETH_SEPOLIA]: "5",
