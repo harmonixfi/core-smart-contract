@@ -37,6 +37,7 @@ contract Solv is ERC721, ERC721Enumerable, ReentrancyGuard {
             IERC20(wbtc).transferFrom(msg.sender, address(this), _currentcyAmount);
             IERC20(wbtc).approve(address(SOLV), _currentcyAmount);
         } else {
+            IERC20(weth).transferFrom(msg.sender, address(this), _currentcyAmount);
             IERC20(weth).approve(address(SOLV), _currentcyAmount);
         }
         user[msg.sender].owner = msg.sender;
@@ -70,6 +71,7 @@ contract Solv is ERC721, ERC721Enumerable, ReentrancyGuard {
             _openFundRedemptionId,
             _redeemValue
         );
+        console.log("NINVB => balance solv ", wbtc.balanceOf(address(this)));
     }
 
     function tokensOfOwner(address owner) external view returns (uint256[] memory) {
