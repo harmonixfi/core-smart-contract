@@ -63,6 +63,7 @@ contract Solv is ERC721, ERC721Enumerable, ReentrancyGuard {
             "INVALID_CURRENTCY_AMOUNT_UNDER_ZERO"
         );
         user[msg.sender].currentcyAmount -= _redeemValue;
+        tokenGOEFS.approve(address(SOLV), _openFundShareId);
         SOLV.requestRedeem(
             _poolId,
             _openFundShareId,
