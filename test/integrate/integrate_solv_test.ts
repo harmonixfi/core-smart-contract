@@ -168,7 +168,7 @@ describe("Integrate with Solv", async () => {
 
         await solvContract.requestRedeem(
             poolId,
-            4310,
+            4801,
             0,
             currentcyAmount
         );
