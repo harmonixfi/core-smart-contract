@@ -9,32 +9,57 @@ import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "../../interfaces/Solv/ISolv.sol";
 import "../../interfaces/Solv/SolvStruct.sol";
+import "../../vaults/deltaNeutral/structs/DeltaNeutralStruct.sol";
+import "../../extensions/RockOnyxAccessControl.sol";
+import "../../lib/ShareMath";
 import "hardhat/console.sol";
 
-contract SolvVault is ERC721, ERC721Enumerable, ReentrancyGuard {
+contract SolvVault is ERC721, ERC721Enumerable, ReentrancyGuard, RockOnyxAccessControl {
     ISolv private SOLV;
     IERC20 private tokenSubscribe;
     IERC721Enumerable private tokenGOEFS;
     mapping(address => UserDepositSolv) public user;
     address private admin;
+    VaultParams private vaultParams;
+    VaultState internal vaultState;
+    uint256 private networkCost;
+    uint256 private initialPPS;
 
-    constructor(address _solvAddress, address _tokenSubscibeAddress, address _tokenGOEFS) ERC721("General Open-end Fund Share", "GOEFS"){
+    //migration
+    DepositReceiptArr[] depositReceiptArr;
+    WithdrawalArr[] withdrawalArr;
+
+    constructor() ERC721("General Open-end Fund Share", "GOEFS"){
+        
+    }
+
+    function initialize(
+        address _admin,
+        address _solvAddress, 
+        address _tokenSubscibeAddress, 
+        address _tokenGOEFS,
+        uint8 _decimal,
+        uint256 _minimumSupply,
+        uint256 _cap,
+        uint256 _networkCost,
+        uint256 _initialPPS
+        ) public {
         SOLV = ISolv(_solvAddress);
         tokenSubscribe = IERC20(_tokenSubscibeAddress);
         tokenGOEFS = IERC721Enumerable(_tokenGOEFS);
+        vaultParams = VaultParams(_decimal, _tokenSubscibeAddress, _minimumSupply, _cap, 10, 1);
+        vaultState = VaultState(0, 0, 0, 0, 0);
+        networkCost = _networkCost;
+
+        _grantRole(ROCK_ONYX_ADMIN_ROLE, _admin);
+
+        initialPPS = _initialPPS;
     }
 
-    function deposit(
-        bytes32 _poolId,
-        uint256 _currentcyAmount,
-        uint256 _openFundShareId
-    ) external nonReentrant {
-        require(_currentcyAmount > 0, "INVALID_SUBSCRIBE_AMOUNT");
-        require(_poolId != 0, "INVALID_SUBSCRIBE_POOLID");
-        IERC20(tokenSubscribe).approve(address(this), _currentcyAmount);
-        IERC20(tokenSubscribe).transferFrom(msg.sender, address(this), _currentcyAmount);
-        IERC20(tokenSubscribe).approve(address(SOLV), _currentcyAmount);
-        subcribeToSolv(_poolId, _currentcyAmount, _openFundShareId);
+    function deposit(uint256 _amount) external nonReentrant {
+        require(paused == false, "VAULT_PAUSED");
+        require(_amount >= vaultParams.minimumSupply, "MIN_AMOUNT");
+        
     }
 
     function subcribeToSolv(
@@ -42,7 +67,11 @@ contract SolvVault is ERC721, ERC721Enumerable, ReentrancyGuard {
         uint256 _amountSubscribe,
         uint256 _openFundShareId
     ) internal nonReentrant {
-        //deposit to vault
+        require(_amountSubscribe > 0, "INVALID_SUBSCRIBE_AMOUNT");
+        require(_poolId != 0, "INVALID_SUBSCRIBE_POOLID");
+        IERC20(tokenSubscribe).approve(address(this), _amountSubscribe);
+        IERC20(tokenSubscribe).transferFrom(msg.sender, address(this), _amountSubscribe);
+        IERC20(tokenSubscribe).approve(address(SOLV), _amountSubscribe);
         user[msg.sender].owner = msg.sender;
         user[msg.sender].poolId = _poolId;
         user[msg.sender].currentcyAmount += _amountSubscribe;
@@ -77,6 +106,38 @@ contract SolvVault is ERC721, ERC721Enumerable, ReentrancyGuard {
         console.log("NINVB => balance solv ", tokenSubscribe.balanceOf(address(this)));
     }
 
+    /**
+     * @notice get total value locked vault
+     */
+    function _totalValueLock() private view returns(uint256) {
+        return vaultState.pendingDepositAmount + vaultState.withdrawPoolAmount;
+    }
+
+    /**
+     * @notice get current price per share
+     */
+    function pricePerShare() external view returns(uint256) {
+        return _getPricePerShare();
+    }
+
+    function _getPricePerShare() private view returns(uint256) {
+        if (vaultState.totalShares == 0) return initialPPS;
+        return (_totalValueLock() * 10 ** vaultParams.decimals) / vaultState.totalShares;
+    }
+
+    /**
+     * @notice Mints the vault shares to the creditor
+     * @param amount is the amount to issue shares
+     * shares = amount / pricePerShare
+     */
+    function _issueShares(uint256 _amount) private view returns (uint256) {
+        return ShareMath.assetToShares(
+            _amount,
+            _getPricePerShare(),
+            vaultParams.decimals
+        );
+    }
+
     function getCurrentSubscribeToken() public view returns(address) {
         return address(tokenSubscribe);
     }
@@ -99,7 +160,7 @@ contract SolvVault is ERC721, ERC721Enumerable, ReentrancyGuard {
     function supportsInterface(bytes4 interfaceId)
         public
         view
-        override(ERC721, ERC721Enumerable)
+        override(ERC721, ERC721Enumerable, AccessControl)
         returns (bool)
     {
         return super.supportsInterface(interfaceId);
