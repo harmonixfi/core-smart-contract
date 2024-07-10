@@ -84,167 +84,167 @@ describe("Integrate with Solv", async () => {
         });
     })
 
-    // it("Should revert if currency amount equal zero", async () => {
-    //     await expect(
-    //         solvContract
-    //             .connect(admin)
-    //             .subscribe(
-    //                 '0x3b2232fb5309e89e5ee6e2ca6066bcc28ee365045e9a565040bf8c846b87477e',
-    //                 0,
-    //                 0,
-    //                 true
-    //             )
-    //     ).to.be.revertedWith('INVALID_SUBSCRIBE_AMOUNT');
-    // })
+    it("Should revert if currency amount equal zero", async () => {
+        await expect(
+            solvContract
+                .connect(admin)
+                .subscribe(
+                    '0x3b2232fb5309e89e5ee6e2ca6066bcc28ee365045e9a565040bf8c846b87477e',
+                    0,
+                    0,
+                    true
+                )
+        ).to.be.revertedWith('INVALID_SUBSCRIBE_AMOUNT');
+    })
 
-    // it('Subscribe wbtc - happy part', async () => {
-    //     console.log('--------subscribe wbtc with solv happy part--------');
-    //     const wbtcSigner = await ethers.getSigner(wbtcImpersonatedSigner);
+    it('Subscribe wbtc - happy part', async () => {
+        console.log('--------subscribe wbtc with solv happy part--------');
+        const wbtcSigner = await ethers.getSigner(wbtcImpersonatedSigner);
 
-    //     console.log("Balance of signer wbtc ", await wbtc.connect(wbtcSigner).balanceOf(wbtcSigner.getAddress()));
+        console.log("Balance of signer wbtc ", await wbtc.connect(wbtcSigner).balanceOf(wbtcSigner.getAddress()));
 
-    //     // Transfer WBTC from wbtcSigner to admin
-    //     await transferForUser(wbtc, wbtcSigner, admin, 20 * 1e8);
+        // Transfer WBTC from wbtcSigner to admin
+        await transferForUser(wbtc, wbtcSigner, admin, 20 * 1e8);
 
-    //     const balance = await wbtc.connect(admin).balanceOf(admin.getAddress());
+        const balance = await wbtc.connect(admin).balanceOf(admin.getAddress());
         
-    //     console.log(
-    //         'Subscribe wbtc => balance admin: ', balance
-    //     );
-
-    //     await wbtc.connect(admin).approve(solvContract.getAddress(), 1 * 1e8);
-
-    //     //subscribe to solv
-    //     await solvContract.connect(admin).subscribe(
-    //         poolId,
-    //         currentcyAmount,
-    //         openFundShareId,
-    //         true
-    //     );
-
-    //     const solvBalance = await wbtc.balanceOf(solvContract.getAddress());
-
-    //     //before run test this case, change user in contract to public
-    //     const user = await solvContract.user(admin.getAddress())
-
-    //     const count = await solvContract.tokensOfOwner(solvContract.getAddress());
-
-    //     console.log("List token of solvContract ", count);
-
-    //     expect(solvBalance).to.equal(0);
-    //     expect(user.owner).to.equal(await admin.getAddress());
-    //     expect(user.poolId).to.equal(poolId);
-    //     expect(user.currentcyAmount).to.equal(currentcyAmount);
-    // });
-
-    // it("Request redeem wbtc - happy part", async () => {
-    //     console.log('----------------Request redeem wbtc----------------');
-    //     const wbtcSigner = await ethers.getSigner(wbtcImpersonatedSigner);
-
-    //     console.log(
-    //         'Balance of signer wbtc ',
-    //         await wbtc.connect(wbtcSigner).balanceOf(wbtcSigner.getAddress())
-    //     );
-
-    //     // Transfer WBTC from wbtcSigner to admin
-    //     await transferForUser(wbtc, wbtcSigner, admin, 20 * 1e8);
-
-    //     const balance = await wbtc.connect(admin).balanceOf(admin.getAddress());
-
-    //     console.log('Subscribe wbtc => balance admin: ', balance);
-
-    //     await wbtc.connect(admin).approve(solvContract.getAddress(), 2 * 1e8);
-
-    //     //subscribe to solv
-    //     await solvContract
-    //         .connect(admin)
-    //         .subscribe(poolId, valueRedeem, openFundShareId, true);
-
-    //     const count = await solvContract.tokensOfOwner(
-    //         solvContract.getAddress()
-    //     );
-
-    //     console.log('List token of solvContract ', count);
-
-    //     const balanceAdminBefore = await wbtc
-    //         .connect(admin)
-    //         .balanceOf(await admin.getAddress());
-
-    //     console.log('NINVB => balanceAdmin before ', balanceAdminBefore);
-
-    //     const hx = await solvContract.requestRedeem(
-    //         poolId,
-    //         4801,
-    //         0,
-    //         currentcyAmount
-    //     );
-    //     await hx.wait();
-
-    //     // console.log("NINVB => hx ", hx);
-
-    //     console.log('List token of solvContract ', count);
-
-    //     //before run test this case, change user in contract to public
-    //     const user = await solvContract.user(admin.getAddress());
-
-    //     const solvBalance = await wbtc.balanceOf(solvContract.getAddress());
-
-    //     const balanceAdmin = await wbtc.connect(admin).balanceOf(await admin.getAddress());
-
-    //     console.log("NINVB => balanceAdmin ", balanceAdmin);
-        
-    //     expect(solvBalance).to.equal(0);
-    //     expect(user.currentcyAmount).to.equal(1*1e8);
-    // })
-
-    it('Subscribe weth - happy part', async () => {
-        console.log('--------subscribe weth with solv--------');
-
-        const tx1 = await admin.sendTransaction({
-            to: wethImpersonatedSigner,
-            value: ethers.parseEther('2'),
-        });
-
-        const wethSigner = await ethers.getImpersonatedSigner(
-            wethImpersonatedSigner
+        console.log(
+            'Subscribe wbtc => balance admin: ', balance
         );
 
-        const transferTx0 = await weth
-            .connect(wethSigner)
-            .transfer(admin, ethers.parseEther('20'));
-        await transferTx0.wait();
+        await wbtc.connect(admin).approve(solvContract.getAddress(), 1 * 1e8);
 
-        const balance = await weth.connect(admin).balanceOf(admin.getAddress());
+        //subscribe to solv
+        await solvContract.connect(admin).subscribe(
+            poolId,
+            currentcyAmount,
+            openFundShareId,
+            true
+        );
 
-        console.log('Subscribe weth => balance admin: ', balance);
+        const solvBalance = await wbtc.balanceOf(solvContract.getAddress());
 
-        const wethAmount = ethers.parseUnits('2', 18);
+        //before run test this case, change user in contract to public
+        const user = await solvContract.user(admin.getAddress())
 
-        // Transfer WETH to the contract
-        await weth.connect(admin).transfer(solvContract.getAddress(), wethAmount);
+        const count = await solvContract.tokensOfOwner(solvContract.getAddress());
 
-        // Check WETH balance in the contract before subscribe
-        const contractBalance = await weth.balanceOf(solvContract.getAddress());
-        console.log('WETH Balance of contract: ', contractBalance.toString());
+        console.log("List token of solvContract ", count);
 
-        // Approve the contract to use the WETH
-        await weth.connect(admin).approve(solvContract.getAddress(), wethAmount);
-        
+        expect(solvBalance).to.equal(0);
+        expect(user.owner).to.equal(await admin.getAddress());
+        expect(user.poolId).to.equal(poolId);
+        expect(user.currentcyAmount).to.equal(currentcyAmount);
+    });
+
+    it("Request redeem wbtc - happy part", async () => {
+        console.log('----------------Request redeem wbtc----------------');
+        const wbtcSigner = await ethers.getSigner(wbtcImpersonatedSigner);
+
+        console.log(
+            'Balance of signer wbtc ',
+            await wbtc.connect(wbtcSigner).balanceOf(wbtcSigner.getAddress())
+        );
+
+        // Transfer WBTC from wbtcSigner to admin
+        await transferForUser(wbtc, wbtcSigner, admin, 20 * 1e8);
+
+        const balance = await wbtc.connect(admin).balanceOf(admin.getAddress());
+
+        console.log('Subscribe wbtc => balance admin: ', balance);
+
+        await wbtc.connect(admin).approve(solvContract.getAddress(), 2 * 1e8);
+
         //subscribe to solv
         await solvContract
             .connect(admin)
-            .subscribe(poolId, wethAmount, openFundShareId, false);
+            .subscribe(poolId, valueRedeem, openFundShareId, true);
 
-        console.log('NINVB => vao day');
+        const count = await solvContract.tokensOfOwner(
+            solvContract.getAddress()
+        );
 
-        // const solvBalance = await wbtc.balanceOf(solvContract.getAddress());
+        console.log('List token of solvContract ', count);
 
-        // //before run test this case, change user in contract to public
-        // const user = await solvContract.user(admin.getAddress());
+        const balanceAdminBefore = await wbtc
+            .connect(admin)
+            .balanceOf(await admin.getAddress());
 
-        // expect(solvBalance).to.equal(0);
-        // expect(user.owner).to.equal(await admin.getAddress());
-        // expect(user.poolId).to.equal(poolId);
-        // expect(user.currentcyAmount).to.equal(wethAmount);
+        console.log('NINVB => balanceAdmin before ', balanceAdminBefore);
+
+        const hx = await solvContract.requestRedeem(
+            poolId,
+            4310,
+            0,
+            currentcyAmount
+        );
+        await hx.wait();
+
+        // console.log("NINVB => hx ", hx);
+
+        console.log('List token of solvContract ', count);
+
+        //before run test this case, change user in contract to public
+        const user = await solvContract.user(admin.getAddress());
+
+        const solvBalance = await wbtc.balanceOf(solvContract.getAddress());
+
+        const balanceAdmin = await wbtc.connect(admin).balanceOf(await admin.getAddress());
+
+        console.log("NINVB => balanceAdmin ", balanceAdmin);
+        
+        expect(solvBalance).to.equal(0);
+        expect(user.currentcyAmount).to.equal(1*1e8);
     })
+
+    // it('Subscribe weth - happy part', async () => {
+    //     console.log('--------subscribe weth with solv--------');
+
+    //     const tx1 = await admin.sendTransaction({
+    //         to: wethImpersonatedSigner,
+    //         value: ethers.parseEther('2'),
+    //     });
+
+    //     const wethSigner = await ethers.getImpersonatedSigner(
+    //         wethImpersonatedSigner
+    //     );
+
+    //     const transferTx0 = await weth
+    //         .connect(wethSigner)
+    //         .transfer(admin, ethers.parseEther('20'));
+    //     await transferTx0.wait();
+
+    //     const balance = await weth.connect(admin).balanceOf(admin.getAddress());
+
+    //     console.log('Subscribe weth => balance admin: ', balance);
+
+    //     const wethAmount = ethers.parseUnits('2', 18);
+
+    //     // Transfer WETH to the contract
+    //     await weth.connect(admin).transfer(solvContract.getAddress(), wethAmount);
+
+    //     // Check WETH balance in the contract before subscribe
+    //     const contractBalance = await weth.balanceOf(solvContract.getAddress());
+    //     console.log('WETH Balance of contract: ', contractBalance.toString());
+
+    //     // Approve the contract to use the WETH
+    //     await weth.connect(admin).approve(solvContract.getAddress(), wethAmount);
+        
+    //     //subscribe to solv
+    //     await solvContract
+    //         .connect(admin)
+    //         .subscribe(poolId, wethAmount, openFundShareId, false);
+
+    //     console.log('NINVB => vao day');
+
+    //     // const solvBalance = await wbtc.balanceOf(solvContract.getAddress());
+
+    //     // //before run test this case, change user in contract to public
+    //     // const user = await solvContract.user(admin.getAddress());
+
+    //     // expect(solvBalance).to.equal(0);
+    //     // expect(user.owner).to.equal(await admin.getAddress());
+    //     // expect(user.poolId).to.equal(poolId);
+    //     // expect(user.currentcyAmount).to.equal(wethAmount);
+    // })
 })
