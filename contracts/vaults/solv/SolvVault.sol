@@ -11,7 +11,7 @@ import "../../interfaces/Solv/ISolv.sol";
 import "../../interfaces/Solv/SolvStruct.sol";
 import "../../vaults/deltaNeutral/structs/DeltaNeutralStruct.sol";
 import "../../extensions/RockOnyxAccessControl.sol";
-import "../../lib/ShareMath";
+import "../../lib/ShareMath.sol";
 import "hardhat/console.sol";
 
 contract SolvVault is ERC721, ERC721Enumerable, ReentrancyGuard, RockOnyxAccessControl {
@@ -59,7 +59,7 @@ contract SolvVault is ERC721, ERC721Enumerable, ReentrancyGuard, RockOnyxAccessC
     function deposit(uint256 _amount) external nonReentrant {
         require(paused == false, "VAULT_PAUSED");
         require(_amount >= vaultParams.minimumSupply, "MIN_AMOUNT");
-        
+
     }
 
     function subcribeToSolv(
@@ -127,7 +127,7 @@ contract SolvVault is ERC721, ERC721Enumerable, ReentrancyGuard, RockOnyxAccessC
 
     /**
      * @notice Mints the vault shares to the creditor
-     * @param amount is the amount to issue shares
+     * @param _amount is the amount to issue shares
      * shares = amount / pricePerShare
      */
     function _issueShares(uint256 _amount) private view returns (uint256) {
