@@ -24,10 +24,17 @@ contract SolvVault is ERC721, ERC721Enumerable, ReentrancyGuard, RockOnyxAccessC
     VaultState internal vaultState;
     uint256 private networkCost;
     uint256 private initialPPS;
+    mapping(address => DepositReceipt) private depositReceipts;
+    mapping(address => Withdrawal) private withdrawals;
 
     //migration
     DepositReceiptArr[] depositReceiptArr;
     WithdrawalArr[] withdrawalArr;
+
+    /************************************************
+     *  EVENTS
+     ***********************************************/
+    event Deposited(address indexed account, address indexed tokenIn, uint256 amount, uint256 shares);
 
     constructor() ERC721("General Open-end Fund Share", "GOEFS"){
         
@@ -59,7 +66,16 @@ contract SolvVault is ERC721, ERC721Enumerable, ReentrancyGuard, RockOnyxAccessC
     function deposit(uint256 _amount) external nonReentrant {
         require(paused == false, "VAULT_PAUSED");
         require(_amount >= vaultParams.minimumSupply, "MIN_AMOUNT");
+        require(_totalValueLock() + _amount <= vaultParams.cap, "EXCEED_CAP");
+        IERC20(tokenSubscribe).transferFrom(msg.sender, address(this), _amount);
+        uint256 shares = _issueShares(_amount);
+        DepositReceipt storage depositReceipt = depositReceipts[msg.sender];
+        depositReceipt.shares += shares;
+        depositReceipt.depositAmount += _amount;
+        vaultState.pendingDepositAmount += _amount;
+        vaultState.totalShares += shares;
 
+        emit Deposited(msg.sender, address(tokenSubscribe), _amount, shares);
     }
 
     function subcribeToSolv(
