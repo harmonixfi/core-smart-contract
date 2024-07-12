@@ -30,12 +30,24 @@ const kelpDepositAddress = KELP_DEPOSIT_ADDRESS[chainId] || AddressZero;
 const kelpDepositRefId = KELP_DEPOSIT_REF_ID[chainId] || AddressZero;
 const zircuitDepositAddress = ZIRCUIT_DEPOSIT_ADDRESS[chainId] || AddressZero;
 
-const contractAdmin = "0x0d4eef21D898883a6bd1aE518B60fEf7A951ce4D";
+let contractAdmin;
 
-const UPGRADEABLE_PROXY = "";
+let UPGRADEABLE_PROXY;
+let aevoRecipientAddress;
 
-// mainnet
-const aevoRecipientAddress = "0x0F8C856907DfAFB96871AbE09a76586311632ef8";
+if (chainId == CHAINID.ARBITRUM_MAINNET) {
+  console.log("Setting up params for Arbitrum network");
+  // mainnet
+  contractAdmin = "0x0d4eef21D898883a6bd1aE518B60fEf7A951ce4D";
+  UPGRADEABLE_PROXY = "";
+  aevoRecipientAddress = "0x0F8C856907DfAFB96871AbE09a76586311632ef8";
+} else if (chainId == CHAINID.ETH_MAINNET) {
+  console.log("Setting up params for Ether network");
+  // mainnet
+  contractAdmin = "0x470e1d28639B1bd5624c85235eeF29624A597E68";
+  UPGRADEABLE_PROXY = "";
+  aevoRecipientAddress = "0x9d95DC7c1Aa6F6CC784edD5690C003692470d616";
+}
 
 async function deployKelpRestakingDeltaNeutralVault() {
   const kelpRestakingDeltaNeutralVault = await ethers.getContractFactory(
@@ -63,7 +75,7 @@ async function deployKelpRestakingDeltaNeutralVault() {
       [usdcAddress, rsEthAddress, usdtAddress, daiAddress],
       [wethAddress, wethAddress, usdcAddress, usdtAddress],
       [500, 100, 100, 100],
-      chainId
+      chainId,
     ],
     { initializer: "initialize" }
   );
