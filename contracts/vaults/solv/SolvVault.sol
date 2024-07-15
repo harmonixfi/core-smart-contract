@@ -1,10 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.19;
 
-import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
-import "@openzeppelin/contracts-upgradeable/token/ERC721/ERC721Upgradeable.sol";
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC721/extensions/ERC721EnumerableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
@@ -139,7 +136,7 @@ contract SolvVault is Initializable, ERC721EnumerableUpgradeable, ReentrancyGuar
     }
 
     /**
-     * @notice get total value locked vault
+     * @notice get total value locked vault => devide 1e26 = value real
      */
     function totalValueLock() external returns (uint256) {
         return (this.getPricePerShares() * vaultState.totalShares);
