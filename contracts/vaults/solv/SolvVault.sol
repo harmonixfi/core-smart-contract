@@ -79,7 +79,7 @@ contract SolvVault is Initializable, ERC721EnumerableUpgradeable, ReentrancyGuar
     ) external nonReentrant {
         require(_amountSubscribe >= vaultParams.minimumSupply, "MIN_AMOUNT");
         require(
-            this.totalValueLock() + _amountSubscribe <= vaultParams.cap,
+            this.totalValueLock() / 1e18 + _amountSubscribe <= vaultParams.cap,
             "EXCEED_CAP"
         );
         require(_amountSubscribe > 0, "INVALID_SUBSCRIBE_AMOUNT");
@@ -109,7 +109,7 @@ contract SolvVault is Initializable, ERC721EnumerableUpgradeable, ReentrancyGuar
         console.log("NINVB => pss ", this.getPricePerShares());
         console.log("NINVB => totalShares ", vaultState.totalShares);
         console.log("NINVB => userShares ", userShares);
-        console.log("NINVB => TVL ", this.totalValueLock() / 1e18);
+        console.log("NINVB => TVL ", this.totalValueLock());
     }
 
     function requestRedeem(
