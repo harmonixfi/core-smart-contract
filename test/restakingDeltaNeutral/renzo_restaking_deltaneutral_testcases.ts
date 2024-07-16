@@ -1,4 +1,4 @@
-const { ethers, network } = require("hardhat");
+const { ethers, upgrades, network } = require("hardhat");
 import { expect } from "chai";
 
 import * as Contracts from "../../typechain-types";
