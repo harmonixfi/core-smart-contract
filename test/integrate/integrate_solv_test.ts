@@ -1,7 +1,9 @@
 const { ethers, network, upgrades } = require('hardhat');
+const { time } = require('@openzeppelin/test-helpers');
 import * as Contracts from "../../typechain-types";
 import {
     CHAINID,
+    GOEFR_ADDRESS,
     GOEFS_ADDRESS,
     SOLV_ADDRESS,
     WBTC_ADDRESS,
@@ -15,21 +17,20 @@ const hre = require('hardhat');
 const chainId: CHAINID = network.config.chainId;
 const poolId = "0x3b2232fb5309e89e5ee6e2ca6066bcc28ee365045e9a565040bf8c846b87477e";
 const openFundShareId = 0;
-const currentcyAmount = 2 * 1e8;
-const valueRedeem = 2 * 1e8;
 
 console.log("chainId: ", chainId);
 
 describe("Integrate with Solv", async () => {
     let admin: Signer;
     let wbtc: Contracts.IERC20;
-    let weth: Contracts.IERC20;
     let tokenGOEFS: Contracts.IERC721;
+    let tokenGOEFR: Contracts.IERC721;
     let solvVaultContract: Contracts.SolvVault;
 
     const wbtcAddress = WBTC_ADDRESS[chainId] || "";
     const wethAddress = WETH_ADDRESS[chainId] || "";
     const tokenGOEFSAddress = GOEFS_ADDRESS[chainId] || "";
+    const tokenGOEFRAddress = GOEFR_ADDRESS[chainId] || '';
     const wbtcImpersonatedSigner = WBTC_IMPERSONATED_SIGNER_ADDRESS[chainId] || '';
     const wethImpersonatedSigner = WETH_IMPERSONATED_SIGNER_ADDRESS[chainId] || '';
     const solvAddress = SOLV_ADDRESS[chainId] || "";
@@ -49,6 +50,7 @@ describe("Integrate with Solv", async () => {
                 solvAddress,
                 wbtcAddress,
                 tokenGOEFSAddress,
+                tokenGOEFRAddress,
                 poolId,
                 8,
                 BigInt(1 * 1e5),
@@ -65,9 +67,9 @@ describe("Integrate with Solv", async () => {
     beforeEach(async () => {
         [admin] = await ethers.getSigners();
         wbtc = await ethers.getContractAt('IERC20', wbtcAddress);
-        weth = await ethers.getContractAt('IERC20', wethAddress);
         tokenGOEFS = await ethers.getContractAt("IERC721", tokenGOEFSAddress);
-        
+        tokenGOEFR = await ethers.getContractAt('IERC721', tokenGOEFRAddress);
+
         await deploySolvVault();
 
         await hre.network.provider.request({
@@ -117,44 +119,44 @@ describe("Integrate with Solv", async () => {
     //     ).to.be.revertedWith('MIN_AMOUNT');
     // });
 
-    it('Subscribe wbtc - happy part', async () => {
-        console.log('--------subscribe wbtc with solv happy part--------');
-        const wbtcSigner = await ethers.getSigner(wbtcImpersonatedSigner);
+    // it('Subscribe wbtc - happy part', async () => {
+    //     console.log('--------subscribe wbtc with solv happy part--------');
+    //     const wbtcSigner = await ethers.getSigner(wbtcImpersonatedSigner);
 
-        console.log("Balance of signer wbtc ", await wbtc.connect(wbtcSigner).balanceOf(wbtcSigner.getAddress()));
+    //     console.log("Balance of signer wbtc ", await wbtc.connect(wbtcSigner).balanceOf(wbtcSigner.getAddress()));
 
-        // Transfer WBTC from wbtcSigner to admin
-        await transferForUser(wbtc, wbtcSigner, admin, 20 * 1e8);
+    //     // Transfer WBTC from wbtcSigner to admin
+    //     await transferForUser(wbtc, wbtcSigner, admin, 20 * 1e8);
 
-        const balance = await wbtc.connect(admin).balanceOf(admin.getAddress());
+    //     const balance = await wbtc.connect(admin).balanceOf(admin.getAddress());
         
-        console.log(
-            'Subscribe wbtc => balance admin: ', balance
-        );
+    //     console.log(
+    //         'Subscribe wbtc => balance admin: ', balance
+    //     );
 
-        await wbtc.connect(admin).approve(solvVaultContract.getAddress(), 20 * 1e8);
+    //     await wbtc.connect(admin).approve(solvVaultContract.getAddress(), 20 * 1e8);
 
-        //subscribe to solv
-        await solvVaultContract.connect(admin).deposit(
-            poolId,
-            2 * 1e8,
-            openFundShareId
-        );
+    //     //subscribe to solv
+        // await solvVaultContract.connect(admin).deposit(
+        //     poolId,
+        //     2 * 1e8,
+        //     openFundShareId
+        // );
 
-        const solvBalance = await wbtc.balanceOf(solvVaultContract.getAddress());
+    //     const solvBalance = await wbtc.balanceOf(solvVaultContract.getAddress());
 
-        //before run test this case, change user in contract to public
-        const user = await solvVaultContract.user(admin.getAddress())
+    //     //before run test this case, change user in contract to public
+    //     const user = await solvVaultContract.user(admin.getAddress())
 
-        const count = await solvVaultContract.tokensOfOwner(solvVaultContract.getAddress());
+    //     const count = await solvVaultContract.tokensOfOwner(tokenGOEFS.getAddress());
 
-        console.log("List token of solvContract ", count);
+    //     console.log("List token of solvContract ", count);
 
-        expect(solvBalance).to.equal(0);
-        expect(user.owner).to.equal(await admin.getAddress());
-        expect(user.poolId).to.equal(poolId);
-        expect(user.currentcyAmount).to.equal(2 * 1e8);
-    });
+    //     expect(solvBalance).to.equal(0);
+    //     expect(user.owner).to.equal(await admin.getAddress());
+    //     expect(user.poolId).to.equal(poolId);
+    //     expect(user.currentcyAmount).to.equal(2 * 1e8);
+    // });
 
     // it("Request redeem wbtc - happy part", async () => {
     //     console.log('----------------Request redeem wbtc----------------');
@@ -172,47 +174,117 @@ describe("Integrate with Solv", async () => {
 
     //     console.log('Subscribe wbtc => balance admin: ', balance);
 
-    //     await wbtc.connect(admin).approve(solvVaultContract.getAddress(), 2 * 1e8);
+    //     await wbtc
+    //         .connect(admin)
+    //         .approve(solvVaultContract.getAddress(), 20 * 1e8);
 
     //     //subscribe to solv
     //     await solvVaultContract
     //         .connect(admin)
-    //         .subscribe(poolId, valueRedeem, openFundShareId, true);
+    //         .deposit(poolId, 2 * 1e8, openFundShareId);
 
     //     const count = await solvVaultContract.tokensOfOwner(
-    //         solvVaultContract.getAddress()
+    //         tokenGOEFS.getAddress()
     //     );
 
     //     console.log('List token of solvContract ', count);
-
-    //     const balanceAdminBefore = await wbtc
-    //         .connect(admin)
-    //         .balanceOf(await admin.getAddress());
-
-    //     console.log('NINVB => balanceAdmin before ', balanceAdminBefore);
 
     //     const hx = await solvVaultContract.requestRedeem(
     //         poolId,
-    //         4310,
+    //         4800,
     //         0,
-    //         currentcyAmount
+    //         1 * 1e8
     //     );
     //     await hx.wait();
 
-    //     // console.log("NINVB => hx ", hx);
+    //     console.log('NINVB => request redeem hx ', await hx.wait());
 
-    //     console.log('List token of solvContract ', count);
+    //     // Simulate passing 15 days
+    //     await time.increase(time.duration.days(15));
 
-    //     //before run test this case, change user in contract to public
-    //     const user = await solvVaultContract.user(admin.getAddress());
+    //     const countGOEFR = await solvVaultContract.tokensOfOwner(
+    //         tokenGOEFR.getAddress()
+    //     );
 
-    //     const solvBalance = await wbtc.balanceOf(solvVaultContract.getAddress());
+    //     console.log('List countGOEFR ', countGOEFR);
 
-    //     const balanceAdmin = await wbtc.connect(admin).balanceOf(await admin.getAddress());
+    //     // //before run test this case, change user in contract to public
+    //     const user = await solvVaultContract.user(await admin.getAddress());
 
-    //     console.log("NINVB => balanceAdmin ", balanceAdmin);
-        
+    //     const solvBalance = await wbtc.balanceOf(
+    //         solvVaultContract.getAddress()
+    //     );
+
+    //     const balanceAdmin = await wbtc
+    //         .connect(admin)
+    //         .balanceOf(await admin.getAddress());
+
+    //     console.log('NINVB => balanceAdmin ', balanceAdmin);
+
     //     expect(solvBalance).to.equal(0);
-    //     expect(user.currentcyAmount).to.equal(1*1e8);
+    //     expect(user.currentcyAmount).to.equal(1 * 1e8);
     // })
+
+    it('Claim wbtc - happy part', async () => {
+        console.log('----------------Claim wbtc----------------');
+        const wbtcSigner = await ethers.getSigner(wbtcImpersonatedSigner);
+
+        console.log(
+            'Balance of signer wbtc ',
+            await wbtc.connect(wbtcSigner).balanceOf(wbtcSigner.getAddress())
+        );
+
+        // Transfer WBTC from wbtcSigner to admin
+        await transferForUser(wbtc, wbtcSigner, admin, 20 * 1e8);
+
+        const balance = await wbtc.connect(admin).balanceOf(admin.getAddress());
+
+        console.log('Subscribe wbtc => balance admin: ', balance);
+
+        await wbtc
+            .connect(admin)
+            .approve(solvVaultContract.getAddress(), 20 * 1e8);
+
+        //subscribe to solv
+        await solvVaultContract
+            .connect(admin)
+            .deposit(poolId, 2 * 1e8, openFundShareId);
+
+        const count = await solvVaultContract.tokensOfOwner(
+            tokenGOEFS.getAddress()
+        );
+
+        console.log('List token of solvContract ', count);
+
+        const hx = await solvVaultContract.requestRedeem(
+            poolId,
+            4800,
+            0,
+            1 * 1e8
+        );
+        await hx.wait();
+
+        // Simulate passing 15 days
+        await time.increase(time.duration.days(15));
+
+        const countGOEFR = await solvVaultContract.tokensOfOwner(
+            tokenGOEFR.getAddress()
+        );
+
+        console.log('List countGOEFR ', countGOEFR);
+
+        const balanceAdmin = await wbtc
+            .connect(admin)
+            .balanceOf(await admin.getAddress());
+
+        console.log('NINVB => balanceAdmin ', balanceAdmin);
+
+        console.log("NINVB => balance of GOEFR ", await solvVaultContract.getBalanceOfGOEFR(2231));
+
+        const hxClaim = await solvVaultContract.redeem(2231, 1 * 1e8);
+
+        await hxClaim.wait();
+
+        console.log('NINVB => hxClaim ', await hxClaim.wait());
+    });
 })

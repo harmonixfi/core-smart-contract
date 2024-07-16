@@ -267,6 +267,9 @@ export const GOEFS_ADDRESS: { [key in CHAINID]?: string } = {
   [CHAINID.ARBITRUM_MAINNET]: "0x22799DAA45209338B7f938edf251bdfD1E6dCB32"
 }
 
+export const GOEFR_ADDRESS: { [key in CHAINID]?: string } = {
+  [CHAINID.ARBITRUM_MAINNET]: "0xe9bD233b2b34934Fb83955EC15c2ac48F31A0E8c"
+}
 
 export const NETWORK_COST: { [key in CHAINID]?: string } = {
   [CHAINID.ETH_MAINNET]: "5",

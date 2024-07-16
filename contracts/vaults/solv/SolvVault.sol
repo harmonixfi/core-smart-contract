@@ -15,13 +15,21 @@ import "../../extensions/RockOnyxAccessControl.sol";
 import "../../lib/ShareMath.sol";
 import "../../interfaces/Solv/SolvStruct.sol";
 import "../../lib/FullMath.sol";
+import "../../interfaces/Solv/ITokenGOEFR.sol";
 import "hardhat/console.sol";
 
-contract SolvVault is Initializable, ERC721EnumerableUpgradeable, ReentrancyGuardUpgradeable, AccessControlUpgradeable {
+contract SolvVault is
+    Initializable,
+    ERC721EnumerableUpgradeable,
+    ReentrancyGuardUpgradeable,
+    AccessControlUpgradeable
+{
     ISolv private SOLV;
     INavOracal private NavOracal;
     IERC20 private wbtc;
     IERC721Enumerable private tokenGOEFS;
+    IERC721Enumerable private tokenGOEFR;
+    ITokenGOEFR private GOEFR;
     address private admin;
     VaultParams private vaultParams;
     VaultState internal vaultState;
@@ -44,11 +52,27 @@ contract SolvVault is Initializable, ERC721EnumerableUpgradeable, ReentrancyGuar
         uint256 shares
     );
 
+    event RequestRedeem(
+        bytes32 indexed poolId,
+        address indexed owner,
+        uint256 indexed openFundShareId,
+        uint256 openFundRedemptionId,
+        uint256 redeemValue
+    );
+
+    event Claim(
+        address indexed to,
+        uint256 indexed tokenId,
+        uint256 claimValue,
+        address currency
+    );
+
     function initialize(
         address _admin,
         address _solvAddress,
         address _wbtc,
         address _tokenGOEFS,
+        address _tokenGOEFR,
         bytes32 _poolId,
         uint8 _decimal,
         uint256 _minimumSupply,
@@ -60,8 +84,10 @@ contract SolvVault is Initializable, ERC721EnumerableUpgradeable, ReentrancyGuar
         __AccessControl_init();
 
         SOLV = ISolv(_solvAddress);
+        GOEFR = ITokenGOEFR(_tokenGOEFR);
         wbtc = IERC20(_wbtc);
         tokenGOEFS = IERC721Enumerable(_tokenGOEFS);
+        tokenGOEFR = IERC721Enumerable(_tokenGOEFR);
         vaultParams = VaultParams(_decimal, _wbtc, _minimumSupply, _cap, 10, 1);
         vaultState = VaultState(0, 0, 0, 0, 0);
         poolId = _poolId;
@@ -69,6 +95,10 @@ contract SolvVault is Initializable, ERC721EnumerableUpgradeable, ReentrancyGuar
         _grantRole(DEFAULT_ADMIN_ROLE, _admin);
     }
 
+
+    /**
+     * @notice deposit to the vault and subscribe to the Solv
+     */
     function deposit(
         bytes32 _poolId,
         uint256 _amountSubscribe,
@@ -80,11 +110,7 @@ contract SolvVault is Initializable, ERC721EnumerableUpgradeable, ReentrancyGuar
             "EXCEED_CAP"
         );
         require(_amountSubscribe > 0, "INVALID_SUBSCRIBE_AMOUNT");
-        IERC20(wbtc).transferFrom(
-            msg.sender,
-            address(this),
-            _amountSubscribe
-        );
+        IERC20(wbtc).transferFrom(msg.sender, address(this), _amountSubscribe);
         IERC20(wbtc).approve(address(SOLV), _amountSubscribe);
         uint256 userShares = SOLV.subscribe(
             _poolId,
@@ -97,24 +123,20 @@ contract SolvVault is Initializable, ERC721EnumerableUpgradeable, ReentrancyGuar
         user[msg.sender].poolId = _poolId;
         user[msg.sender].currentcyAmount += _amountSubscribe;
         user[msg.sender].share += userShares;
-        emit Deposited(
-            msg.sender,
-            address(wbtc),
-            _amountSubscribe,
-            userShares
-        );
-        console.log("NINVB => pss ", this.getPricePerShares());
-        console.log("NINVB => totalShares ", vaultState.totalShares);
-        console.log("NINVB => userShares ", userShares);
-        console.log("NINVB => TVL ", this.totalValueLock());
+
+        emit Deposited(msg.sender, address(wbtc), _amountSubscribe, userShares);
     }
 
+    
+    /**
+     * @notice request redeem => burn token GOEFS => mint token GOEFR wait for claim
+     */
     function requestRedeem(
         bytes32 _poolId,
         uint256 _openFundShareId,
         uint256 _openFundRedemptionId,
         uint256 _redeemValue
-    ) external {
+    ) external nonReentrant {
         require(
             tokenGOEFS.ownerOf(_openFundShareId) == address(this),
             "INVALID_OWNER_OF_TOKEN"
@@ -133,6 +155,36 @@ contract SolvVault is Initializable, ERC721EnumerableUpgradeable, ReentrancyGuar
             _openFundRedemptionId,
             _redeemValue
         );
+
+        emit RequestRedeem(
+            _poolId,
+            msg.sender,
+            _openFundShareId,
+            _openFundRedemptionId,
+            _redeemValue
+        );
+    }
+
+    /**
+     * @notice use token GOEFR get from request redeem to claim
+     */
+    function redeem(
+        uint256 _tokenId,
+        uint256 _claimValue
+    ) external nonReentrant {
+        require(
+            tokenGOEFR.ownerOf(_tokenId) == address(this),
+            "INVALID_OWNER_OF_TOKEN"
+        );
+        require(_claimValue > 0, "INVALID_CLAIM_VALUE");
+
+        console.log("NINVB => vao day _tokenId ", _tokenId);
+        console.log("NINVB => vao day _claimValue ", _claimValue);
+        console.log("NINVB => vao day GOEFR ", address(GOEFR));
+
+        GOEFR.claimTo(msg.sender, _tokenId, address(wbtc), _claimValue);
+
+        emit Claim(msg.sender, _tokenId, _claimValue, address(wbtc));
     }
 
     /**
@@ -146,24 +198,34 @@ contract SolvVault is Initializable, ERC721EnumerableUpgradeable, ReentrancyGuar
         address navOracalAddress = getNavOracleAddress(poolId);
         //init nav oracal
         NavOracal = INavOracal(navOracalAddress);
-        (uint256 _nav, ) = //navTime
-        NavOracal.getSubscribeNav(poolId, block.timestamp);
+        (
+            uint256 _nav, //navTime
+
+        ) = NavOracal.getSubscribeNav(poolId, block.timestamp);
         return _nav;
     }
 
     function getNavOracleAddress(bytes32 _poolId) internal returns (address) {
         (
-            ,   // PoolSFTInfo memory poolSFTInfo
-            ,   // PoolFeeInfo memory poolFeeInfo
-            ,   // ManagerInfo memory managerInfo
-            ,   // SubscribeLimitInfo memory subscribeLimitInfo
-            ,   // address vault
-            ,   // address currency
+            ,
+            ,
+            ,
+            ,
+            ,
+            ,
+            // PoolSFTInfo memory poolSFTInfo
+            // PoolFeeInfo memory poolFeeInfo
+            // ManagerInfo memory managerInfo
+            // SubscribeLimitInfo memory subscribeLimitInfo
+            // address vault
+            // address currency
             address navOracle, // address navOracle
-            ,   // uint64 valueDate
-            ,   // bool permissionless
+            ,
+            ,
 
-        ) = // uint256 fundraisingAmount
+        ) = // uint64 valueDate
+            // bool permissionless
+            // uint256 fundraisingAmount
             SOLV.poolInfos(_poolId);
         return navOracle;
     }
@@ -172,21 +234,27 @@ contract SolvVault is Initializable, ERC721EnumerableUpgradeable, ReentrancyGuar
         return address(wbtc);
     }
 
-    function tokensOfOwner(address owner) external view returns (uint256[] memory) {
-        uint256 tokenCount = tokenGOEFS.balanceOf(owner);
+    function tokensOfOwner(
+        address tokenNFTAddress
+    ) external view returns (uint256[] memory) {
+        uint256 tokenCount = IERC721Enumerable(tokenNFTAddress).balanceOf(address(this));
         uint256[] memory result = new uint256[](tokenCount);
         for (uint256 i = 0; i < tokenCount; i++) {
-            uint256 tokenId = tokenGOEFS.tokenOfOwnerByIndex(owner, i);
+            uint256 tokenId = IERC721Enumerable(tokenNFTAddress).tokenOfOwnerByIndex(address(this), i);
             result[i] = tokenId;
         }
         return result;
+    }
+
+    function getBalanceOfGOEFR(uint256 _tokenId) external returns(uint256) {
+        return GOEFR.balanceOf(_tokenId);
     }
 
     function _update(
         address to,
         uint256 tokenId,
         address auth
-    ) internal override( ERC721EnumerableUpgradeable) returns (address) {
+    ) internal override(ERC721EnumerableUpgradeable) returns (address) {
         return super._update(to, tokenId, auth);
     }
 
