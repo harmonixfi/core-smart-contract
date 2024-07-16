@@ -28,38 +28,29 @@ contract WstEthStakingStrategy is BaseRestakingStrategy {
         restakingState.totalBalance = restakingState.unAllocatedBalance + ethAmount * swapProxy.getPriceOf(address(ethToken), address(usdcToken)) / 1e18;
     }
 
-    function depositToRestakingProxy(uint256 ethAmount) internal override {
+    function depositToRestakingProxy(uint256 ethAmount, bytes calldata swapCallData) external override nonReentrant{
+        _auth(ROCK_ONYX_OPTIONS_TRADER_ROLE);
+
         ethToken.approve(address(swapProxy), ethAmount);
             swapProxy.swapTo(
                 address(this),
                 address(ethToken),
                 ethAmount,
                 address(restakingToken),
-                getFee(address(ethToken), address(restakingToken))
+                swapCallData
             );
     }
 
-    function withdrawFromRestakingProxy(uint256 ethAmount) internal override {
-        uint256 stakingTokenAmount = swapProxy.getAmountInMaximum(address(restakingToken), address(ethToken), ethAmount);
-         if (restakingToken.balanceOf(address(this)) < stakingTokenAmount) {
-            restakingToken.approve(address(swapProxy), restakingToken.balanceOf(address(this)));
-            swapProxy.swapTo(
-                address(this),
-                address(restakingToken),
-                restakingToken.balanceOf(address(this)),
-                address(ethToken),
-                getFee(address(restakingToken), address(ethToken))
-            );
-            return;
-        } 
+    function withdrawFromRestakingProxy(uint256 restakingTokenAmount, bytes calldata swapCallData) external override nonReentrant {
+        _auth(ROCK_ONYX_OPTIONS_TRADER_ROLE);
 
-        restakingToken.approve(address(swapProxy), stakingTokenAmount);
-        swapProxy.swapToWithOutput(
+        restakingToken.approve(address(swapProxy), restakingTokenAmount);
+        swapProxy.swapTo(
             address(this),
             address(restakingToken),
-            ethAmount,
+            restakingTokenAmount,
             address(ethToken),
-            getFee(address(restakingToken), address(ethToken))
+            swapCallData
         );
     }
 }

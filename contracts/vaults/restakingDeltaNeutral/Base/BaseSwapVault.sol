@@ -4,10 +4,11 @@ pragma solidity ^0.8.19;
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "../../../extensions/Uniswap/Uniswap.sol";
+import "../../../interfaces/ISwapAggregator.sol";
 import "hardhat/console.sol";
 
 abstract contract BaseSwapVault {
-    UniSwap internal swapProxy;
+    ISwapAggregator internal swapProxy;
     mapping(address => mapping(address => uint24)) internal fees;
 
     function baseSwapVault_Initialize(
@@ -16,7 +17,7 @@ abstract contract BaseSwapVault {
         address[] memory _token1s,
         uint24[] memory _fees
     ) internal virtual {
-        swapProxy = UniSwap(_swapAddress);
+        swapProxy = ISwapAggregator(_swapAddress);
 
         for (uint8 i = 0; i < _fees.length; i++) {
             fees[_token0s[i]][_token1s[i]] = _fees[i];

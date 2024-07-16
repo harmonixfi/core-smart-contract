@@ -78,34 +78,20 @@ abstract contract BaseDeltaNeutralVault is
      * @notice Mints the vault shares for depositor
      * @param amount is the amount of `dasset` deposited
      */
-    function deposit(uint256 amount, address tokenIn, address transitToken) external nonReentrant {
+    function deposit(uint256 amount, address tokenIn, bytes calldata swapCallData) external nonReentrant {
         require(paused == false, "VAULT_PAUSED");
-        uint256 assetDepositAmount = (tokenIn == vaultParams.asset) ? amount : 
-                            (tokenIn == transitToken) ? amount * swapProxy.getPriceOf(tokenIn, vaultParams.asset) / 10 ** (ERC20(tokenIn).decimals()) :
-                            (amount * swapProxy.getPriceOf(tokenIn, transitToken) * swapProxy.getPriceOf(transitToken, vaultParams.asset)) / 10 ** (ERC20(tokenIn).decimals() + (ERC20(transitToken).decimals()));
-        require(assetDepositAmount >= vaultParams.minimumSupply, "MIN_AMOUNT");
-        require(_totalValueLocked() + assetDepositAmount <= vaultParams.cap, "EXCEED_CAP");
+        require(amount >= vaultParams.minimumSupply, "MIN_AMOUNT");
+        require(_totalValueLocked() + amount <= vaultParams.cap, "EXCEED_CAP");
 
         TransferHelper.safeTransferFrom(tokenIn, msg.sender, address(this), amount);
         if(tokenIn != vaultParams.asset){
-            if(tokenIn != transitToken){
-                TransferHelper.safeApprove(tokenIn, address(swapProxy), amount);
-                amount = swapProxy.swapTo(
-                    address(this),
-                    address(tokenIn),
-                    amount,
-                    address(transitToken),
-                    getFee(address(tokenIn), address(transitToken))
-                );
-            }
-
-            TransferHelper.safeApprove(transitToken, address(swapProxy), amount);
+            TransferHelper.safeApprove(tokenIn, address(swapProxy), amount);
             amount = swapProxy.swapTo(
                 address(this),
-                address(transitToken),
+                address(tokenIn),
                 amount,
                 address(vaultParams.asset),
-                getFee(address(transitToken), address(vaultParams.asset))
+                swapCallData
             );
         }
 
