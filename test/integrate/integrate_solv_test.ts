@@ -265,7 +265,7 @@ describe("Integrate with Solv", async () => {
         await hx.wait();
 
         // Simulate passing 15 days
-        await time.increase(time.duration.days(15));
+        // await time.increase(time.duration.days(15));
 
         const countGOEFR = await solvVaultContract.tokensOfOwner(
             tokenGOEFR.getAddress()

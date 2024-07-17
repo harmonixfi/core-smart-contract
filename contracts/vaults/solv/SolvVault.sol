@@ -3,9 +3,6 @@ pragma solidity ^0.8.19;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
-import "@openzeppelin/contracts-upgradeable/token/ERC721/extensions/ERC721EnumerableUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 import "../../interfaces/Solv/ISolv.sol";
 import "../../interfaces/Solv/INavOracal.sol";
@@ -19,12 +16,7 @@ import "../../interfaces/Solv/ITokenGOEFR.sol";
 import "../../extensions/TransferHelper.sol";
 import "hardhat/console.sol";
 
-contract SolvVault is
-    Initializable,
-    ERC721EnumerableUpgradeable,
-    ReentrancyGuardUpgradeable,
-    AccessControlUpgradeable
-{
+contract SolvVault is ReentrancyGuardUpgradeable {
     ISolv private SOLV;
     INavOracal private NavOracal;
     IERC20 private wbtc;
@@ -35,8 +27,6 @@ contract SolvVault is
     VaultParams private vaultParams;
     VaultState internal vaultState;
     bytes32 public poolId;
-    mapping(address => UserDepositSolv) public user;
-    mapping(address => DepositReceipt) private depositReceipts;
     mapping(address => Withdrawal) private withdrawals;
 
     //migration
@@ -68,11 +58,7 @@ contract SolvVault is
         address currency
     );
 
-    event WithDrawal(
-        address indexed to,
-        uint256 claimValue,
-        address currentcy
-    );
+    event WithDrawal(address indexed to, uint256 claimValue, address currentcy);
 
     function initialize(
         address _admin,
@@ -84,12 +70,7 @@ contract SolvVault is
         uint8 _decimal,
         uint256 _minimumSupply,
         uint256 _cap
-    ) public initializer {
-        __ERC721_init("General Open-end Fund Share", "GOEFS");
-        __ERC721Enumerable_init();
-        __ReentrancyGuard_init();
-        __AccessControl_init();
-
+    ) public {
         SOLV = ISolv(_solvAddress);
         GOEFR = ITokenGOEFR(_tokenGOEFR);
         wbtc = IERC20(_wbtc);
@@ -98,10 +79,7 @@ contract SolvVault is
         vaultParams = VaultParams(_decimal, _wbtc, _minimumSupply, _cap, 10, 1);
         vaultState = VaultState(0, 0, 0, 0, 0);
         poolId = _poolId;
-
-        _grantRole(DEFAULT_ADMIN_ROLE, _admin);
     }
-
 
     /**
      * @notice deposit to the vault and subscribe to the Solv
@@ -126,15 +104,10 @@ contract SolvVault is
             uint64(block.timestamp + 180)
         );
         vaultState.totalShares += userShares;
-        user[msg.sender].owner = msg.sender;
-        user[msg.sender].poolId = _poolId;
-        user[msg.sender].currentcyAmount += _amountSubscribe;
-        user[msg.sender].share += userShares;
 
         emit Deposited(msg.sender, address(wbtc), _amountSubscribe, userShares);
     }
 
-    
     /**
      * @notice request redeem => burn token GOEFS => mint token GOEFR wait for claim
      */
@@ -148,20 +121,15 @@ contract SolvVault is
             tokenGOEFS.ownerOf(_openFundShareId) == address(this),
             "INVALID_OWNER_OF_TOKEN"
         );
-        require(user[msg.sender].owner == msg.sender, "INVALID_OWNER");
-        require(
-            user[msg.sender].currentcyAmount > 0,
-            "INVALID_CURRENTCY_AMOUNT_UNDER_ZERO"
-        );
+        require(withdrawals[msg.sender].shares == 0, "INVALID_WITHDRAW_STATE");
         vaultState.totalShares -= _redeemValue;
-        user[msg.sender].currentcyAmount -= _redeemValue;
-        user[msg.sender].amountWithdrawal = _redeemValue;
+        withdrawals[msg.sender].shares = _redeemValue;
         tokenGOEFS.approve(address(SOLV), _openFundShareId);
         SOLV.requestRedeem(
             _poolId,
             _openFundShareId,
             _openFundRedemptionId,
-            _redeemValue * 1e10
+            _redeemValue
         );
 
         emit RequestRedeem(
@@ -171,6 +139,10 @@ contract SolvVault is
             _openFundRedemptionId,
             _redeemValue
         );
+
+        //migration
+        updateWithdrawalArr(withdrawals[msg.sender]);
+        // end migration
     }
 
     /**
@@ -185,15 +157,21 @@ contract SolvVault is
             "INVALID_OWNER_OF_TOKEN"
         );
         require(_claimValue > 0, "INVALID_CLAIM_VALUE");
-
-        console.log("NINVB => vao day _tokenId ", _tokenId);
-        console.log("NINVB => vao day _claimValue ", _claimValue);
-        console.log("NINVB => vao day GOEFR ", address(GOEFR));
-        console.log("NINVB => vao day address wbtc ", address(wbtc));
-
-        GOEFR.claimTo(address(this), _tokenId, address(wbtc), _claimValue * 1e10);
+        require(withdrawals[msg.sender].shares >= _claimValue, "INVALID_SHARES");
+        withdrawals[msg.sender].shares -= _claimValue;
+        withdrawals[msg.sender].withdrawAmount += _claimValue;
+        GOEFR.claimTo(
+            address(this),
+            _tokenId,
+            address(wbtc),
+            _claimValue
+        );
 
         emit Claim(address(this), _tokenId, _claimValue, address(wbtc));
+
+        // migration
+        updateWithdrawalArr(withdrawals[msg.sender]);
+        // end migration
     }
 
     /**
@@ -201,9 +179,9 @@ contract SolvVault is
      */
     function withdrawal(uint256 _amountWithdrawal) external nonReentrant {
         require(_amountWithdrawal > 0 , "INVALID_AMOUNT_WITHDRAW");
-        require(user[msg.sender].amountWithdrawal > 0, "USER_MUST_REQUEST_REDEEM_BEFORE");
+        require(withdrawals[msg.sender].withdrawAmount >= _amountWithdrawal);
+        withdrawals[msg.sender].withdrawAmount -= _amountWithdrawal;
         TransferHelper.safeTransferFrom(address(wbtc), address(this), msg.sender, _amountWithdrawal);
-        user[msg.sender].amountWithdrawal = 0;
 
         emit WithDrawal(msg.sender, _amountWithdrawal, address(wbtc));
     }
@@ -241,11 +219,11 @@ contract SolvVault is
             // address vault
             // address currency
             address navOracle, // address navOracle
+            // uint64 valueDate
             ,
             ,
 
-        ) = // uint64 valueDate
-            // bool permissionless
+        ) = // bool permissionless
             // uint256 fundraisingAmount
             SOLV.poolInfos(_poolId);
         return navOracle;
@@ -258,42 +236,37 @@ contract SolvVault is
     function tokensOfOwner(
         address tokenNFTAddress
     ) external view returns (uint256[] memory) {
-        uint256 tokenCount = IERC721Enumerable(tokenNFTAddress).balanceOf(address(this));
+        uint256 tokenCount = IERC721Enumerable(tokenNFTAddress).balanceOf(
+            address(this)
+        );
         uint256[] memory result = new uint256[](tokenCount);
         for (uint256 i = 0; i < tokenCount; i++) {
-            uint256 tokenId = IERC721Enumerable(tokenNFTAddress).tokenOfOwnerByIndex(address(this), i);
+            uint256 tokenId = IERC721Enumerable(tokenNFTAddress)
+                .tokenOfOwnerByIndex(address(this), i);
             result[i] = tokenId;
         }
         return result;
     }
 
-    function getBalanceOfGOEFR(uint256 _tokenId) external returns(uint256) {
+    function getBalanceOfGOEFR(uint256 _tokenId) external returns (uint256) {
         return GOEFR.balanceOf(_tokenId);
     }
 
-    function _update(
-        address to,
-        uint256 tokenId,
-        address auth
-    ) internal override(ERC721EnumerableUpgradeable) returns (address) {
-        return super._update(to, tokenId, auth);
+    function updateWithdrawalArr(Withdrawal memory withdrawal) internal {
+        for (uint256 i = 0; i < withdrawalArr.length; i++) {
+            if (withdrawalArr[i].owner == msg.sender) {
+                withdrawalArr[i].withdrawal = withdrawal;
+                return;
+            }
+        }
+
+        withdrawalArr.push(WithdrawalArr(msg.sender, withdrawal));
     }
 
-    function _increaseBalance(
-        address account,
-        uint128 value
-    ) internal override(ERC721EnumerableUpgradeable) {
-        super._increaseBalance(account, value);
-    }
-
-    function supportsInterface(
-        bytes4 interfaceId
-    )
-        public
-        view
-        override(ERC721EnumerableUpgradeable, AccessControlUpgradeable)
-        returns (bool)
-    {
-        return super.supportsInterface(interfaceId);
+    /**
+     * @notice get withdrawl shares of user
+     */
+    function getUserWithdrawlShares() external view returns (uint256) {
+        return withdrawals[msg.sender].shares;
     }
 }
