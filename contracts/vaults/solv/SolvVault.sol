@@ -16,6 +16,7 @@ import "../../lib/ShareMath.sol";
 import "../../interfaces/Solv/SolvStruct.sol";
 import "../../lib/FullMath.sol";
 import "../../interfaces/Solv/ITokenGOEFR.sol";
+import "../../extensions/TransferHelper.sol";
 import "hardhat/console.sol";
 
 contract SolvVault is
@@ -65,6 +66,12 @@ contract SolvVault is
         uint256 indexed tokenId,
         uint256 claimValue,
         address currency
+    );
+
+    event WithDrawal(
+        address indexed to,
+        uint256 claimValue,
+        address currentcy
     );
 
     function initialize(
@@ -148,12 +155,13 @@ contract SolvVault is
         );
         vaultState.totalShares -= _redeemValue;
         user[msg.sender].currentcyAmount -= _redeemValue;
+        user[msg.sender].amountWithdrawal = _redeemValue;
         tokenGOEFS.approve(address(SOLV), _openFundShareId);
         SOLV.requestRedeem(
             _poolId,
             _openFundShareId,
             _openFundRedemptionId,
-            _redeemValue
+            _redeemValue * 1e10
         );
 
         emit RequestRedeem(
@@ -181,10 +189,23 @@ contract SolvVault is
         console.log("NINVB => vao day _tokenId ", _tokenId);
         console.log("NINVB => vao day _claimValue ", _claimValue);
         console.log("NINVB => vao day GOEFR ", address(GOEFR));
+        console.log("NINVB => vao day address wbtc ", address(wbtc));
 
-        GOEFR.claimTo(msg.sender, _tokenId, address(wbtc), _claimValue);
+        GOEFR.claimTo(address(this), _tokenId, address(wbtc), _claimValue * 1e10);
 
-        emit Claim(msg.sender, _tokenId, _claimValue, address(wbtc));
+        emit Claim(address(this), _tokenId, _claimValue, address(wbtc));
+    }
+
+    /**
+     *@notice withdrawal to the address user, only have amountWithdrawal can call this method
+     */
+    function withdrawal(uint256 _amountWithdrawal) external nonReentrant {
+        require(_amountWithdrawal > 0 , "INVALID_AMOUNT_WITHDRAW");
+        require(user[msg.sender].amountWithdrawal > 0, "USER_MUST_REQUEST_REDEEM_BEFORE");
+        TransferHelper.safeTransferFrom(address(wbtc), address(this), msg.sender, _amountWithdrawal);
+        user[msg.sender].amountWithdrawal = 0;
+
+        emit WithDrawal(msg.sender, _amountWithdrawal, address(wbtc));
     }
 
     /**

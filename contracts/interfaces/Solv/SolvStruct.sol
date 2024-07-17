@@ -7,6 +7,7 @@ struct UserDepositSolv {
     uint256 currentcyAmount;
     uint256 tokenId;
     uint256 share;
+    uint256 amountWithdrawal;
 }
 
 struct SFTInfo {

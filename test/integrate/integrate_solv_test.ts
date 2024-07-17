@@ -258,7 +258,7 @@ describe("Integrate with Solv", async () => {
 
         const hx = await solvVaultContract.requestRedeem(
             poolId,
-            4800,
+            7101,
             0,
             1 * 1e8
         );
@@ -279,9 +279,9 @@ describe("Integrate with Solv", async () => {
 
         console.log('NINVB => balanceAdmin ', balanceAdmin);
 
-        console.log("NINVB => balance of GOEFR ", await solvVaultContract.getBalanceOfGOEFR(2231));
+        console.log("NINVB => balance of GOEFR ", await solvVaultContract.getBalanceOfGOEFR(2707));
 
-        const hxClaim = await solvVaultContract.redeem(2231, 1 * 1e8);
+        const hxClaim = await solvVaultContract.redeem(2707, 1 * 1e8);
 
         await hxClaim.wait();
 
