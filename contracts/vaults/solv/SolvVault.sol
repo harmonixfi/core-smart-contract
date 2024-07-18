@@ -27,16 +27,19 @@ contract SolvVault is ReentrancyGuardUpgradeable {
     VaultParams private vaultParams;
     VaultState internal vaultState;
     bytes32 public poolId;
+    mapping(address => DepositReceipt) private depositReceipts;
     mapping(address => Withdrawal) private withdrawals;
-
-    //migration
-    DepositReceiptArr[] depositReceiptArr;
-    WithdrawalArr[] withdrawalArr;
 
     /************************************************
      *  EVENTS
      ***********************************************/
-    event Deposited(
+    event Deposit(
+        address indexed account,
+        address indexed tokenIn,
+        uint256 amount
+    );
+
+    event Subscribe(
         address indexed account,
         address indexed tokenIn,
         uint256 amount,
@@ -71,6 +74,7 @@ contract SolvVault is ReentrancyGuardUpgradeable {
         uint256 _minimumSupply,
         uint256 _cap
     ) public {
+        admin = _admin;
         SOLV = ISolv(_solvAddress);
         GOEFR = ITokenGOEFR(_tokenGOEFR);
         wbtc = IERC20(_wbtc);
@@ -84,10 +88,20 @@ contract SolvVault is ReentrancyGuardUpgradeable {
     /**
      * @notice deposit to the vault and subscribe to the Solv
      */
-    function deposit(
+    function deposit(uint256 _amount) external nonReentrant {
+        require(_amount > 0, "INVALID_AMOUNT_DEPOSIT");
+        TransferHelper.safeTransferFrom(address(wbtc), msg.sender, address(this), _amount);
+        depositReceipts[msg.sender].depositAmount += _amount;
+
+        emit Deposit(msg.sender, address(wbtc), _amount);
+    }
+
+    /**
+     * @notice method subscribe to solv
+     */
+    function subscribe(
         bytes32 _poolId,
-        uint256 _amountSubscribe,
-        uint256 _openFundShareId
+        uint256 _amountSubscribe
     ) external nonReentrant {
         require(_amountSubscribe >= vaultParams.minimumSupply, "MIN_AMOUNT");
         require(
@@ -95,17 +109,23 @@ contract SolvVault is ReentrancyGuardUpgradeable {
             "EXCEED_CAP"
         );
         require(_amountSubscribe > 0, "INVALID_SUBSCRIBE_AMOUNT");
-        IERC20(wbtc).transferFrom(msg.sender, address(this), _amountSubscribe);
-        IERC20(wbtc).approve(address(SOLV), _amountSubscribe);
+        require(depositReceipts[msg.sender].depositAmount >= _amountSubscribe, "AMOUNT_SUBSCRIBE_LOWER_AMOUNT_DEPOSITED");
+
+        TransferHelper.safeApprove(address(wbtc), address(SOLV), _amountSubscribe);
+
+        //check sender have token GOEFS => if have then call method by token id else call subscribe new with token id 0
         uint256 userShares = SOLV.subscribe(
             _poolId,
             _amountSubscribe,
-            _openFundShareId,
+            depositReceipts[msg.sender].tokenIdSubscribe > 0 ? depositReceipts[msg.sender].tokenIdSubscribe : 0,
             uint64(block.timestamp + 180)
         );
+
+        //update tokenId of user
+        depositReceipts[msg.sender].tokenIdSubscribe = getLatestToken(address(tokenGOEFS));
         vaultState.totalShares += userShares;
 
-        emit Deposited(msg.sender, address(wbtc), _amountSubscribe, userShares);
+        emit Subscribe(msg.sender, address(wbtc), _amountSubscribe, userShares);
     }
 
     /**
@@ -113,65 +133,67 @@ contract SolvVault is ReentrancyGuardUpgradeable {
      */
     function requestRedeem(
         bytes32 _poolId,
-        uint256 _openFundShareId,
-        uint256 _openFundRedemptionId,
         uint256 _redeemValue
     ) external nonReentrant {
+        uint256 tokenIdSubscribe = depositReceipts[msg.sender].tokenIdSubscribe;
+        uint256 tokenIdRedeem = depositReceipts[msg.sender].tokenIdRedeem;
+
         require(
-            tokenGOEFS.ownerOf(_openFundShareId) == address(this),
+            tokenGOEFS.ownerOf(tokenIdSubscribe) == address(this),
             "INVALID_OWNER_OF_TOKEN"
         );
         require(withdrawals[msg.sender].shares == 0, "INVALID_WITHDRAW_STATE");
+
         vaultState.totalShares -= _redeemValue;
         withdrawals[msg.sender].shares = _redeemValue;
-        tokenGOEFS.approve(address(SOLV), _openFundShareId);
+        depositReceipts[msg.sender].depositAmount -= _redeemValue;
+        tokenGOEFS.approve(address(SOLV), tokenIdSubscribe);
+
         SOLV.requestRedeem(
             _poolId,
-            _openFundShareId,
-            _openFundRedemptionId,
+            tokenIdSubscribe,
+            tokenIdRedeem > 0 ? tokenIdRedeem: 0,
             _redeemValue
         );
+
+        //update tokenId of user
+        depositReceipts[msg.sender].tokenIdRedeem = getLatestToken(address(tokenGOEFR));
 
         emit RequestRedeem(
             _poolId,
             msg.sender,
-            _openFundShareId,
-            _openFundRedemptionId,
+            tokenIdSubscribe,
+            tokenIdRedeem,
             _redeemValue
         );
-
-        //migration
-        updateWithdrawalArr(withdrawals[msg.sender]);
-        // end migration
     }
 
     /**
      * @notice use token GOEFR get from request redeem to claim
      */
     function redeem(
-        uint256 _tokenId,
         uint256 _claimValue
     ) external nonReentrant {
+        uint256 tokenIdRedeem = depositReceipts[msg.sender].tokenIdRedeem; 
+
         require(
-            tokenGOEFR.ownerOf(_tokenId) == address(this),
+            tokenGOEFR.ownerOf(tokenIdRedeem) == address(this),
             "INVALID_OWNER_OF_TOKEN"
         );
         require(_claimValue > 0, "INVALID_CLAIM_VALUE");
         require(withdrawals[msg.sender].shares >= _claimValue, "INVALID_SHARES");
+
         withdrawals[msg.sender].shares -= _claimValue;
         withdrawals[msg.sender].withdrawAmount += _claimValue;
+        
         GOEFR.claimTo(
             address(this),
-            _tokenId,
+            tokenIdRedeem,
             address(wbtc),
             _claimValue
         );
 
-        emit Claim(address(this), _tokenId, _claimValue, address(wbtc));
-
-        // migration
-        updateWithdrawalArr(withdrawals[msg.sender]);
-        // end migration
+        emit Claim(address(this), tokenIdRedeem, _claimValue, address(wbtc));
     }
 
     /**
@@ -184,6 +206,15 @@ contract SolvVault is ReentrancyGuardUpgradeable {
         TransferHelper.safeTransferFrom(address(wbtc), address(this), msg.sender, _amountWithdrawal);
 
         emit WithDrawal(msg.sender, _amountWithdrawal, address(wbtc));
+    }
+
+    /**
+     * @notice get latest token by address
+     */
+    function getLatestToken(address _token) internal view returns(uint256) {
+        uint256[] memory arrToken = tokensOfOwner(address(_token));
+        uint256 latestToken = arrToken[arrToken.length - 1];
+        return latestToken;
     }
 
     /**
@@ -235,7 +266,7 @@ contract SolvVault is ReentrancyGuardUpgradeable {
 
     function tokensOfOwner(
         address tokenNFTAddress
-    ) external view returns (uint256[] memory) {
+    ) internal view returns (uint256[] memory) {
         uint256 tokenCount = IERC721Enumerable(tokenNFTAddress).balanceOf(
             address(this)
         );
@@ -250,17 +281,6 @@ contract SolvVault is ReentrancyGuardUpgradeable {
 
     function getBalanceOfGOEFR(uint256 _tokenId) external returns (uint256) {
         return GOEFR.balanceOf(_tokenId);
-    }
-
-    function updateWithdrawalArr(Withdrawal memory withdrawal) internal {
-        for (uint256 i = 0; i < withdrawalArr.length; i++) {
-            if (withdrawalArr[i].owner == msg.sender) {
-                withdrawalArr[i].withdrawal = withdrawal;
-                return;
-            }
-        }
-
-        withdrawalArr.push(WithdrawalArr(msg.sender, withdrawal));
     }
 
     /**
