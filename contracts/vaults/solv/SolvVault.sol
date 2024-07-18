@@ -7,23 +7,21 @@ import "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol
 import "../../interfaces/Solv/ISolv.sol";
 import "../../interfaces/Solv/INavOracal.sol";
 import "../../interfaces/Solv/SolvStruct.sol";
-import "../../vaults/deltaNeutral/structs/DeltaNeutralStruct.sol";
 import "../../extensions/RockOnyxAccessControl.sol";
 import "../../lib/ShareMath.sol";
 import "../../interfaces/Solv/SolvStruct.sol";
 import "../../lib/FullMath.sol";
 import "../../interfaces/Solv/ITokenGOEFR.sol";
 import "../../extensions/TransferHelper.sol";
+import "./structs/SolvStruct.sol";
 import "hardhat/console.sol";
 
-contract SolvVault is ReentrancyGuardUpgradeable {
+contract SolvVault is RockOnyxAccessControl, ReentrancyGuardUpgradeable {
     ISolv private SOLV;
     INavOracal private NavOracal;
-    IERC20 private wbtc;
-    IERC721Enumerable private tokenGOEFS;
-    IERC721Enumerable private tokenGOEFR;
+    address private tokenGOEFS;
+    address private tokenGOEFR;
     ITokenGOEFR private GOEFR;
-    address private admin;
     VaultParams private vaultParams;
     VaultState internal vaultState;
     bytes32 public poolId;
@@ -34,14 +32,8 @@ contract SolvVault is ReentrancyGuardUpgradeable {
      *  EVENTS
      ***********************************************/
     event Deposit(
-        address indexed account,
-        address indexed tokenIn,
-        uint256 amount
-    );
-
-    event Subscribe(
-        address indexed account,
-        address indexed tokenIn,
+        address indexed user,
+        address indexed asset,
         uint256 amount,
         uint256 shares
     );
@@ -61,7 +53,8 @@ contract SolvVault is ReentrancyGuardUpgradeable {
         address currency
     );
 
-    event WithDrawal(address indexed to, uint256 claimValue, address currentcy);
+    event requestWithdrawal(address user, address asset, uint256 shares);
+    event WithDrawal(address user, address asset, uint256 shares, uint256 amount);
 
     function initialize(
         address _admin,
@@ -74,97 +67,87 @@ contract SolvVault is ReentrancyGuardUpgradeable {
         uint256 _minimumSupply,
         uint256 _cap
     ) public {
-        admin = _admin;
         SOLV = ISolv(_solvAddress);
         GOEFR = ITokenGOEFR(_tokenGOEFR);
-        wbtc = IERC20(_wbtc);
-        tokenGOEFS = IERC721Enumerable(_tokenGOEFS);
-        tokenGOEFR = IERC721Enumerable(_tokenGOEFR);
-        vaultParams = VaultParams(_decimal, _wbtc, _minimumSupply, _cap, 10, 1);
-        vaultState = VaultState(0, 0, 0, 0, 0);
+        tokenGOEFS = _tokenGOEFS;
+        tokenGOEFR = _tokenGOEFR;
+        vaultParams = VaultParams(_decimal, _wbtc, _minimumSupply, _cap);
+        vaultState = VaultState(0);
         poolId = _poolId;
+
+        _grantRole(ROCK_ONYX_ADMIN_ROLE, _admin);
+        _grantRole(ROCK_ONYX_OPTIONS_TRADER_ROLE, _admin);
     }
 
     /**
      * @notice deposit to the vault and subscribe to the Solv
      */
     function deposit(uint256 _amount) external nonReentrant {
-        require(_amount > 0, "INVALID_AMOUNT_DEPOSIT");
-        TransferHelper.safeTransferFrom(address(wbtc), msg.sender, address(this), _amount);
-        depositReceipts[msg.sender].depositAmount += _amount;
+        require(_amount >= vaultParams.minimumSupply, "MIN_AMOUNT");
+        require(this.totalValueLock() + _amount <= vaultParams.cap, "EXCEED_CAP");
 
-        emit Deposit(msg.sender, address(wbtc), _amount);
-    }
+        TransferHelper.safeTransferFrom(vaultParams.asset, msg.sender, address(this), _amount);
+        TransferHelper.safeApprove(vaultParams.asset, address(SOLV), _amount);
 
-    /**
-     * @notice method subscribe to solv
-     */
-    function subscribe(
-        bytes32 _poolId,
-        uint256 _amountSubscribe
-    ) external nonReentrant {
-        require(_amountSubscribe >= vaultParams.minimumSupply, "MIN_AMOUNT");
-        require(
-            this.totalValueLock() / 1e18 + _amountSubscribe <= vaultParams.cap,
-            "EXCEED_CAP"
-        );
-        require(_amountSubscribe > 0, "INVALID_SUBSCRIBE_AMOUNT");
-        require(depositReceipts[msg.sender].depositAmount >= _amountSubscribe, "AMOUNT_SUBSCRIBE_LOWER_AMOUNT_DEPOSITED");
-
-        TransferHelper.safeApprove(address(wbtc), address(SOLV), _amountSubscribe);
-
-        //check sender have token GOEFS => if have then call method by token id else call subscribe new with token id 0
-        uint256 userShares = SOLV.subscribe(
-            _poolId,
-            _amountSubscribe,
-            depositReceipts[msg.sender].tokenIdSubscribe > 0 ? depositReceipts[msg.sender].tokenIdSubscribe : 0,
+        uint256 _openFundShareId = getLatestToken(tokenGOEFS);
+        uint256 shares = SOLV.subscribe(
+            poolId,
+            _amount,
+            _openFundShareId,
             uint64(block.timestamp + 180)
         );
 
-        //update tokenId of user
-        depositReceipts[msg.sender].tokenIdSubscribe = getLatestToken(address(tokenGOEFS));
-        vaultState.totalShares += userShares;
+        depositReceipts[msg.sender].depositAmount += _amount;
+        depositReceipts[msg.sender].shares += shares;
 
-        emit Subscribe(msg.sender, address(wbtc), _amountSubscribe, userShares);
+        emit Deposit(msg.sender, vaultParams.asset, _amount, shares);
+    }
+
+/**
+     * @notice Initiates a withdrawal that can be processed once the round completes
+     * @param shares is the number of shares to withdraw
+     */
+    function initiateWithdrawal(uint256 shares) external nonReentrant {
+        DepositReceipt storage depositReceipt = depositReceipts[msg.sender];
+        require(depositReceipt.shares >= shares, "INVALID_SHARES");
+        require(withdrawals[msg.sender].shares == 0, "INVALID_WD_STATE");
+
+        depositReceipt.depositAmount -= ((depositReceipt.depositAmount * shares) / depositReceipt.shares);
+        depositReceipt.shares -= shares;
+        withdrawals[msg.sender].shares = shares;
+        
+        
+        emit requestWithdrawal(msg.sender, vaultParams.asset, shares);
+
     }
 
     /**
      * @notice request redeem => burn token GOEFS => mint token GOEFR wait for claim
      */
     function requestRedeem(
-        bytes32 _poolId,
-        uint256 _redeemValue
+        uint256 shares
     ) external nonReentrant {
-        uint256 tokenIdSubscribe = depositReceipts[msg.sender].tokenIdSubscribe;
-        uint256 tokenIdRedeem = depositReceipts[msg.sender].tokenIdRedeem;
+        _auth(ROCK_ONYX_ADMIN_ROLE);
 
-        require(
-            tokenGOEFS.ownerOf(tokenIdSubscribe) == address(this),
-            "INVALID_OWNER_OF_TOKEN"
-        );
-        require(withdrawals[msg.sender].shares == 0, "INVALID_WITHDRAW_STATE");
+        uint256 openFundShareId = getLatestToken(tokenGOEFS);
+        uint256 openFundRedemptionId = getLatestToken(tokenGOEFR);
 
-        vaultState.totalShares -= _redeemValue;
-        withdrawals[msg.sender].shares = _redeemValue;
-        depositReceipts[msg.sender].depositAmount -= _redeemValue;
-        tokenGOEFS.approve(address(SOLV), tokenIdSubscribe);
+        vaultState.totalShares -= shares;
+        IERC721Enumerable(tokenGOEFS).approve(address(SOLV), openFundShareId);
 
         SOLV.requestRedeem(
-            _poolId,
-            tokenIdSubscribe,
-            tokenIdRedeem > 0 ? tokenIdRedeem: 0,
-            _redeemValue
+            poolId,
+            openFundShareId,
+            openFundRedemptionId,
+            shares
         );
 
-        //update tokenId of user
-        depositReceipts[msg.sender].tokenIdRedeem = getLatestToken(address(tokenGOEFR));
-
         emit RequestRedeem(
-            _poolId,
+            poolId,
             msg.sender,
-            tokenIdSubscribe,
-            tokenIdRedeem,
-            _redeemValue
+            openFundShareId,
+            openFundRedemptionId,
+            shares
         );
     }
 
@@ -172,40 +155,38 @@ contract SolvVault is ReentrancyGuardUpgradeable {
      * @notice use token GOEFR get from request redeem to claim
      */
     function redeem(
-        uint256 _claimValue
+        uint256 shares
     ) external nonReentrant {
-        uint256 tokenIdRedeem = depositReceipts[msg.sender].tokenIdRedeem; 
+        _auth(ROCK_ONYX_ADMIN_ROLE);
 
-        require(
-            tokenGOEFR.ownerOf(tokenIdRedeem) == address(this),
-            "INVALID_OWNER_OF_TOKEN"
-        );
-        require(_claimValue > 0, "INVALID_CLAIM_VALUE");
-        require(withdrawals[msg.sender].shares >= _claimValue, "INVALID_SHARES");
+        uint256 openFundRedemptionId = getLatestToken(address(tokenGOEFR));
+        require(openFundRedemptionId != 0, "INVALID_REDEMPTION_ID");
+        require(shares > 0, "INVALID_CLAIM_VALUE");
 
-        withdrawals[msg.sender].shares -= _claimValue;
-        withdrawals[msg.sender].withdrawAmount += _claimValue;
-        
         GOEFR.claimTo(
             address(this),
-            tokenIdRedeem,
-            address(wbtc),
-            _claimValue
+            openFundRedemptionId,
+            vaultParams.asset,
+            shares
         );
 
-        emit Claim(address(this), tokenIdRedeem, _claimValue, address(wbtc));
+        emit Claim(address(this), openFundRedemptionId, shares, vaultParams.asset);
     }
 
     /**
      *@notice withdrawal to the address user, only have amountWithdrawal can call this method
      */
-    function withdrawal(uint256 _amountWithdrawal) external nonReentrant {
-        require(_amountWithdrawal > 0 , "INVALID_AMOUNT_WITHDRAW");
-        require(withdrawals[msg.sender].withdrawAmount >= _amountWithdrawal);
-        withdrawals[msg.sender].withdrawAmount -= _amountWithdrawal;
-        TransferHelper.safeTransferFrom(address(wbtc), address(this), msg.sender, _amountWithdrawal);
+    function withdrawal(uint256 shares) external nonReentrant {
+        require(shares > 0 , "INVALID_AMOUNT_WITHDRAW");
+        require(withdrawals[msg.sender].shares >= shares, "INVALID_SHARES");
+        
+        uint256 withdrawAmount = shares * this.getPricePerShares();
+        require(withdrawAmount <= IERC20(vaultParams.asset).balanceOf(address(this)), "INSUFFICIENT_BALANCE");
 
-        emit WithDrawal(msg.sender, _amountWithdrawal, address(wbtc));
+        withdrawals[msg.sender].shares -= shares;
+        TransferHelper.safeTransferFrom(vaultParams.asset, address(this), msg.sender, withdrawAmount);
+
+        emit WithDrawal(msg.sender, vaultParams.asset, shares, withdrawAmount);
     }
 
     /**
@@ -260,16 +241,8 @@ contract SolvVault is ReentrancyGuardUpgradeable {
         return navOracle;
     }
 
-    function getCurrentSubscribeToken() public view returns (address) {
-        return address(wbtc);
-    }
-
-    function tokensOfOwner(
-        address tokenNFTAddress
-    ) internal view returns (uint256[] memory) {
-        uint256 tokenCount = IERC721Enumerable(tokenNFTAddress).balanceOf(
-            address(this)
-        );
+    function tokensOfOwner(address tokenNFTAddress) internal view returns (uint256[] memory) {
+        uint256 tokenCount = IERC721Enumerable(tokenNFTAddress).balanceOf(address(this));
         uint256[] memory result = new uint256[](tokenCount);
         for (uint256 i = 0; i < tokenCount; i++) {
             uint256 tokenId = IERC721Enumerable(tokenNFTAddress)
@@ -279,14 +252,20 @@ contract SolvVault is ReentrancyGuardUpgradeable {
         return result;
     }
 
-    function getBalanceOfGOEFR(uint256 _tokenId) external returns (uint256) {
-        return GOEFR.balanceOf(_tokenId);
-    }
-
     /**
      * @notice get withdrawl shares of user
      */
     function getUserWithdrawlShares() external view returns (uint256) {
         return withdrawals[msg.sender].shares;
+    }
+
+    function emergencyShutdown(
+        address receiver,
+        address tokenAddress,
+        uint256 amount
+    ) external nonReentrant {
+        _auth(ROCK_ONYX_ADMIN_ROLE);
+
+        IERC20(tokenAddress).transfer(receiver, amount);
     }
 }
