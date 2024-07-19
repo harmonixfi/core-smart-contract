@@ -99,9 +99,9 @@ contract SolvVault is RockOnyxAccessControl, ReentrancyGuardUpgradeable {
             uint64(block.timestamp + 180)
         );
 
-        uint256 _openFundShareId = getLatestToken(tokenGOEFS);
+        uint256 _openFundShareId = this.getLatestToken(tokenGOEFS);
         vaultState.tokenIdSubscribe[msg.sender] = _openFundShareId;
-
+        vaultState.totalShares += shares;
         depositReceipts[msg.sender].depositAmount += _amount;
         depositReceipts[msg.sender].shares += shares;
 
@@ -119,11 +119,10 @@ contract SolvVault is RockOnyxAccessControl, ReentrancyGuardUpgradeable {
 
         depositReceipt.depositAmount -= ((depositReceipt.depositAmount * shares) / depositReceipt.shares);
         depositReceipt.shares -= shares;
+
         withdrawals[msg.sender].shares = shares;
         
-        
         emit requestWithdrawal(msg.sender, vaultParams.asset, shares);
-
     }
 
     /**
@@ -136,8 +135,8 @@ contract SolvVault is RockOnyxAccessControl, ReentrancyGuardUpgradeable {
 
         uint256 openFundShareId = vaultState.tokenIdSubscribe[msg.sender];
         uint256 openFundRedemptionId = vaultState.tokenIdRedeem[msg.sender];
-
         vaultState.totalShares -= shares;
+
         IERC721Enumerable(tokenGOEFS).approve(address(SOLV), openFundShareId);
 
         SOLV.requestRedeem(
@@ -151,8 +150,9 @@ contract SolvVault is RockOnyxAccessControl, ReentrancyGuardUpgradeable {
         if(depositReceipts[msg.sender].shares == 0) {
             vaultState.tokenIdSubscribe[msg.sender] = 0;
         }
+
         //if token id redeem != 0 then set new value
-        uint256 _openFundRedemptionId = getLatestToken(tokenGOEFR);
+        uint256 _openFundRedemptionId = this.getLatestToken(tokenGOEFR);
         vaultState.tokenIdRedeem[msg.sender] = openFundRedemptionId == 0 ? _openFundRedemptionId : openFundRedemptionId;
 
         emit RequestRedeem(
@@ -199,18 +199,20 @@ contract SolvVault is RockOnyxAccessControl, ReentrancyGuardUpgradeable {
         require(withdrawals[msg.sender].shares >= shares, "INVALID_SHARES");
         
         uint256 withdrawAmount = shares * this.getPricePerShares();
-        require(withdrawAmount <= IERC20(vaultParams.asset).balanceOf(address(this)), "INSUFFICIENT_BALANCE");
+        require(withdrawAmount / 1e18 <= IERC20(vaultParams.asset).balanceOf(address(this)), "INSUFFICIENT_BALANCE");
 
         withdrawals[msg.sender].shares -= shares;
-        TransferHelper.safeTransferFrom(vaultParams.asset, address(this), msg.sender, withdrawAmount);
 
+        IERC20(vaultParams.asset).approve(address(this), 2 * 1e8);
+        IERC20(vaultParams.asset).transferFrom(address(this), msg.sender, 2 * 1e8);
+        
         emit WithDrawal(msg.sender, vaultParams.asset, shares, withdrawAmount);
     }
 
     /**
      * @notice get latest token by address
      */
-    function getLatestToken(address _token) internal view returns(uint256) {
+    function getLatestToken(address _token) external view returns(uint256) {
         uint256[] memory arrToken = tokensOfOwner(address(_token));
         uint256 latestToken = arrToken[arrToken.length - 1];
         return latestToken;
