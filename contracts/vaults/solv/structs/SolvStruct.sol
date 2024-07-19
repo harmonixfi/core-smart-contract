@@ -19,4 +19,6 @@ struct VaultParams {
 
 struct VaultState {
     uint256 totalShares;
+    mapping (address => uint256) tokenIdSubscribe;
+    mapping (address => uint256) tokenIdRedeem;
 }
