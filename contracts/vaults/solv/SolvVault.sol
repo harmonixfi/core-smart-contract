@@ -72,10 +72,7 @@ contract SolvVault is RockOnyxAccessControl, ReentrancyGuardUpgradeable {
         tokenGOEFS = _tokenGOEFS;
         tokenGOEFR = _tokenGOEFR;
         vaultParams = VaultParams(_decimal, _wbtc, _minimumSupply, _cap);
-        VaultState storage vs = vaultState;
-        vs.totalShares  = 0;
-        vs.tokenIdSubscribe[msg.sender] = 0;
-        vs.tokenIdRedeem[msg.sender] = 0;
+        vaultState = VaultState(0);
         poolId = _poolId;
 
         _grantRole(ROCK_ONYX_ADMIN_ROLE, _admin);
@@ -95,12 +92,12 @@ contract SolvVault is RockOnyxAccessControl, ReentrancyGuardUpgradeable {
         uint256 shares = SOLV.subscribe(
             poolId,
             _amount,
-            vaultState.tokenIdSubscribe[msg.sender],
+            depositReceipts[msg.sender].tokenIdSubscribe,
             uint64(block.timestamp + 180)
         );
 
         uint256 _openFundShareId = this.getLatestToken(tokenGOEFS);
-        vaultState.tokenIdSubscribe[msg.sender] = _openFundShareId;
+        depositReceipts[msg.sender].tokenIdSubscribe = _openFundShareId;
         vaultState.totalShares += shares;
         depositReceipts[msg.sender].depositAmount += _amount;
         depositReceipts[msg.sender].shares += shares;
@@ -121,6 +118,8 @@ contract SolvVault is RockOnyxAccessControl, ReentrancyGuardUpgradeable {
         depositReceipt.shares -= shares;
 
         withdrawals[msg.sender].shares = shares;
+
+        requestRedeem(shares);
         
         emit requestWithdrawal(msg.sender, vaultParams.asset, shares);
     }
@@ -130,11 +129,11 @@ contract SolvVault is RockOnyxAccessControl, ReentrancyGuardUpgradeable {
      */
     function requestRedeem(
         uint256 shares
-    ) external nonReentrant {
+    ) internal nonReentrant {
         _auth(ROCK_ONYX_ADMIN_ROLE);
 
-        uint256 openFundShareId = vaultState.tokenIdSubscribe[msg.sender];
-        uint256 openFundRedemptionId = vaultState.tokenIdRedeem[msg.sender];
+        uint256 openFundShareId = depositReceipts[msg.sender].tokenIdSubscribe;
+        uint256 openFundRedemptionId = depositReceipts[msg.sender].tokenIdRedeem;
         vaultState.totalShares -= shares;
 
         IERC721Enumerable(tokenGOEFS).approve(address(SOLV), openFundShareId);
@@ -148,12 +147,12 @@ contract SolvVault is RockOnyxAccessControl, ReentrancyGuardUpgradeable {
 
         //if shares of user = 0 then token subscribe was burn
         if(depositReceipts[msg.sender].shares == 0) {
-            vaultState.tokenIdSubscribe[msg.sender] = 0;
+            depositReceipts[msg.sender].tokenIdSubscribe = 0;
         }
 
         //if token id redeem != 0 then set new value
         uint256 _openFundRedemptionId = this.getLatestToken(tokenGOEFR);
-        vaultState.tokenIdRedeem[msg.sender] = openFundRedemptionId == 0 ? _openFundRedemptionId : openFundRedemptionId;
+        depositReceipts[msg.sender].tokenIdRedeem = openFundRedemptionId == 0 ? _openFundRedemptionId : openFundRedemptionId;
 
         emit RequestRedeem(
             poolId,
@@ -169,12 +168,14 @@ contract SolvVault is RockOnyxAccessControl, ReentrancyGuardUpgradeable {
      */
     function redeem(
         uint256 shares
-    ) external nonReentrant {
+    ) internal nonReentrant {
         _auth(ROCK_ONYX_ADMIN_ROLE);
 
-        uint256 openFundRedemptionId = vaultState.tokenIdRedeem[msg.sender];
+        uint256 openFundRedemptionId = depositReceipts[msg.sender].tokenIdRedeem;
         require(openFundRedemptionId != 0, "INVALID_REDEMPTION_ID");
         require(shares > 0, "INVALID_CLAIM_VALUE");
+
+        IERC721Enumerable(tokenGOEFR).approve(address(GOEFR), openFundRedemptionId);
 
         GOEFR.claimTo(
             address(this),
@@ -185,7 +186,7 @@ contract SolvVault is RockOnyxAccessControl, ReentrancyGuardUpgradeable {
 
         //if shares of user = 0 then token redeem was burn
         if(depositReceipts[msg.sender].shares == 0) {
-            vaultState.tokenIdRedeem[msg.sender] = 0;
+            depositReceipts[msg.sender].tokenIdRedeem = 0;
         }
 
         emit Claim(address(this), openFundRedemptionId, shares, vaultParams.asset);
@@ -195,6 +196,8 @@ contract SolvVault is RockOnyxAccessControl, ReentrancyGuardUpgradeable {
      *@notice withdrawal to the address user, only have amountWithdrawal can call this method
      */
     function withdrawal(uint256 shares) external nonReentrant {
+        redeem(shares);
+
         require(shares > 0 , "INVALID_AMOUNT_WITHDRAW");
         require(withdrawals[msg.sender].shares >= shares, "INVALID_SHARES");
         
@@ -203,8 +206,8 @@ contract SolvVault is RockOnyxAccessControl, ReentrancyGuardUpgradeable {
 
         withdrawals[msg.sender].shares -= shares;
 
-        IERC20(vaultParams.asset).approve(address(this), 2 * 1e8);
-        IERC20(vaultParams.asset).transferFrom(address(this), msg.sender, 2 * 1e8);
+        IERC20(vaultParams.asset).approve(address(this), withdrawAmount);
+        IERC20(vaultParams.asset).transferFrom(address(this), msg.sender, withdrawAmount);
         
         emit WithDrawal(msg.sender, vaultParams.asset, shares, withdrawAmount);
     }
