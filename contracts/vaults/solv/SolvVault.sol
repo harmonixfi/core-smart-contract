@@ -74,6 +74,7 @@ contract SolvVault is RockOnyxAccessControl, ReentrancyGuardUpgradeable {
         vaultParams = VaultParams(_decimal, _wbtc, _minimumSupply, _cap);
         vaultState = VaultState(0);
         poolId = _poolId;
+        paused = false;
 
         _grantRole(ROCK_ONYX_ADMIN_ROLE, _admin);
         _grantRole(ROCK_ONYX_OPTIONS_TRADER_ROLE, _admin);
@@ -83,6 +84,7 @@ contract SolvVault is RockOnyxAccessControl, ReentrancyGuardUpgradeable {
      * @notice deposit to the vault and subscribe to the Solv
      */
     function deposit(uint256 _amount) external nonReentrant {
+        require(paused == false, "VAULT_PAUSED");
         require(_amount >= vaultParams.minimumSupply, "MIN_AMOUNT");
         require(this.totalValueLock() + _amount <= vaultParams.cap, "EXCEED_CAP");
 
@@ -130,8 +132,6 @@ contract SolvVault is RockOnyxAccessControl, ReentrancyGuardUpgradeable {
     function requestRedeem(
         uint256 shares
     ) internal nonReentrant {
-        _auth(ROCK_ONYX_ADMIN_ROLE);
-
         uint256 openFundShareId = depositReceipts[msg.sender].tokenIdSubscribe;
         uint256 openFundRedemptionId = depositReceipts[msg.sender].tokenIdRedeem;
         vaultState.totalShares -= shares;
@@ -169,8 +169,6 @@ contract SolvVault is RockOnyxAccessControl, ReentrancyGuardUpgradeable {
     function redeem(
         uint256 shares
     ) internal nonReentrant {
-        _auth(ROCK_ONYX_ADMIN_ROLE);
-
         uint256 openFundRedemptionId = depositReceipts[msg.sender].tokenIdRedeem;
         require(openFundRedemptionId != 0, "INVALID_REDEMPTION_ID");
         require(shares > 0, "INVALID_CLAIM_VALUE");
@@ -196,10 +194,11 @@ contract SolvVault is RockOnyxAccessControl, ReentrancyGuardUpgradeable {
      *@notice withdrawal to the address user, only have amountWithdrawal can call this method
      */
     function withdrawal(uint256 shares) external nonReentrant {
-        redeem(shares);
-
+        require(paused == false, "VAULT_PAUSED");
         require(shares > 0 , "INVALID_AMOUNT_WITHDRAW");
         require(withdrawals[msg.sender].shares >= shares, "INVALID_SHARES");
+
+        redeem(shares);
         
         uint256 withdrawAmount = shares * this.getPricePerShares();
         require(withdrawAmount / 1e18 <= IERC20(vaultParams.asset).balanceOf(address(this)), "INSUFFICIENT_BALANCE");
