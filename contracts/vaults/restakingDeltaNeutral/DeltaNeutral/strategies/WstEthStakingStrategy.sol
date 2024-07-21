@@ -24,14 +24,15 @@ contract WstEthStakingStrategy is BaseRestakingStrategy {
 
     function syncRestakingBalance() internal override{
         uint256 restakingTokenAmount = restakingToken.balanceOf(address(this));
-        uint256 ethAmount = restakingTokenAmount * swapProxy.getPriceOf(address(restakingToken), address(ethToken)) / 1e18;
+        uint256 ethAmount = ethToken.balanceOf(address(this)) + 
+            restakingTokenAmount * swapProxy.getPriceOf(address(restakingToken), address(ethToken)) / 1e18;
         restakingState.totalBalance = restakingState.unAllocatedBalance + ethAmount * swapProxy.getPriceOf(address(ethToken), address(usdcToken)) / 1e18;
     }
 
     function depositToRestakingProxy(uint256 ethAmount, bytes calldata swapCallData) external override nonReentrant{
         _auth(ROCK_ONYX_OPTIONS_TRADER_ROLE);
 
-        ethToken.approve(address(swapProxy), ethAmount);
+        TransferHelper.safeApprove(address(ethToken), address(swapAggregator), ethAmount);
             swapAggregator.swapTo(
                 address(this),
                 address(ethToken),
@@ -44,7 +45,7 @@ contract WstEthStakingStrategy is BaseRestakingStrategy {
     function withdrawFromRestakingProxy(uint256 restakingTokenAmount, bytes calldata swapCallData) external override nonReentrant {
         _auth(ROCK_ONYX_OPTIONS_TRADER_ROLE);
 
-        restakingToken.approve(address(swapProxy), restakingTokenAmount);
+        TransferHelper.safeApprove(address(restakingToken), address(swapAggregator), restakingTokenAmount);
         swapAggregator.swapTo(
             address(this),
             address(restakingToken),

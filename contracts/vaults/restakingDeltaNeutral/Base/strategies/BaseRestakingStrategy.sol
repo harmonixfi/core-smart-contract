@@ -2,10 +2,9 @@
 pragma solidity ^0.8.19;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
+import "../../../../extensions/TransferHelper.sol";
 import "../../../../extensions/RockOnyxAccessControl.sol";
-import "../../../../extensions/Uniswap/Uniswap.sol";
 import "./../../Base/BaseSwapVault.sol";
 import "../../structs/RestakingDeltaNeutralStruct.sol";
 import "hardhat/console.sol";
@@ -55,7 +54,7 @@ abstract contract BaseRestakingStrategy is BaseSwapVault, RockOnyxAccessControl,
         _auth(ROCK_ONYX_OPTIONS_TRADER_ROLE);
         require(restakingState.unAllocatedBalance > usdcAmount, "INSUFICIENT_BALANCE");
 
-        usdcToken.approve(address(swapProxy), usdcAmount);
+        TransferHelper.safeApprove(address(usdcToken), address(swapAggregator), usdcAmount);
         uint256 ethAmount = swapAggregator.swapTo(
             address(this),
             address(usdcToken),
@@ -72,7 +71,7 @@ abstract contract BaseRestakingStrategy is BaseSwapVault, RockOnyxAccessControl,
     function closePosition(uint256 ethAmount, bytes calldata swapCallData) external nonReentrant {
         _auth(ROCK_ONYX_OPTIONS_TRADER_ROLE);
 
-        ethToken.approve(address(swapProxy), ethAmount);
+        TransferHelper.safeApprove(address(ethToken), address(swapAggregator), ethAmount);
         uint256 usdcAmount = swapAggregator.swapTo(
             address(this),
             address(ethToken),

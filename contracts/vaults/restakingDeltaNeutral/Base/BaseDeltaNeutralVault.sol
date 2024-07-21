@@ -93,7 +93,7 @@ abstract contract BaseDeltaNeutralVault is
 
         TransferHelper.safeTransferFrom(tokenIn, msg.sender, address(this), amount);
         if(tokenIn != vaultParams.asset){
-            TransferHelper.safeApprove(tokenIn, address(swapProxy), amount);
+            TransferHelper.safeApprove(tokenIn, address(swapAggregator), amount);
             amount = swapAggregator.swapTo(
                 address(this),
                 address(tokenIn),

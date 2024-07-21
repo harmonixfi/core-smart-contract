@@ -53,7 +53,7 @@ contract RenzoZircuitRestakingStrategy is BaseRestakingStrategy {
                 renzoRestakeProxy.depositETH{value: ethAmount}();
             }
         }else{
-            ethToken.approve(address(swapProxy), ethAmount);
+            TransferHelper.safeApprove(address(ethToken), address(swapAggregator), ethAmount);
             swapAggregator.swapTo(
                 address(this),
                 address(ethToken),
@@ -64,7 +64,7 @@ contract RenzoZircuitRestakingStrategy is BaseRestakingStrategy {
         }
         
         if(address(zircuitRestakeProxy) != address(0)){
-            restakingToken.approve(address(zircuitRestakeProxy), restakingToken.balanceOf(address(this)));
+            TransferHelper.safeApprove(address(restakingToken), address(zircuitRestakeProxy), restakingToken.balanceOf(address(this)));
             zircuitRestakeProxy.depositFor(address(restakingToken), address(this), restakingToken.balanceOf(address(this)));
         }
     }
@@ -79,8 +79,8 @@ contract RenzoZircuitRestakingStrategy is BaseRestakingStrategy {
             zircuitRestakeProxy.withdraw(address(restakingToken), restakingTokenAmount);
         }
         
-        if(address(renzoRestakeProxy) != address(0) && address(renzoWithdrawRestakingPool) != address(0)) {        
-            restakingToken.approve(address(renzoWithdrawRestakingPool), restakingTokenAmount);
+        if(address(renzoRestakeProxy) != address(0) && address(renzoWithdrawRestakingPool) != address(0)) {   
+            TransferHelper.safeApprove(address(restakingToken), address(renzoWithdrawRestakingPool), restakingTokenAmount);
             renzoWithdrawRestakingPool.withdraw(address(restakingToken), restakingTokenAmount);
         }else{
             swapAggregator.swapTo(
