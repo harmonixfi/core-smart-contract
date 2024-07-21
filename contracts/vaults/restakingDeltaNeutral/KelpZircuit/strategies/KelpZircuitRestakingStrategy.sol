@@ -71,6 +71,7 @@ contract KelpZircuitRestakingStrategy is BaseRestakingStrategy {
         bytes calldata swapCallData
     ) external override nonReentrant {
         _auth(ROCK_ONYX_OPTIONS_TRADER_ROLE);
+
         require(
             ethToken.balanceOf(address(this)) >= ethAmount,
             "INVALID_BALANCE"
@@ -111,6 +112,15 @@ contract KelpZircuitRestakingStrategy is BaseRestakingStrategy {
         _auth(ROCK_ONYX_OPTIONS_TRADER_ROLE);
 
         if (address(zircuitRestakeProxy) != address(0)) {
+             uint256 reTokenZircuitBalance = zircuitRestakeProxy.balance(
+                address(restakingToken),
+                address(this)
+            );
+            require(
+                reTokenZircuitBalance >= restakingTokenAmount,
+                "INVALID_ACQUIRE_AMOUNT"
+            );
+            
             zircuitRestakeProxy.withdraw(
                 address(restakingToken),
                 restakingTokenAmount

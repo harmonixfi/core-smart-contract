@@ -26,33 +26,63 @@ contract RenzoZircuitRestakingStrategy is BaseRestakingStrategy {
         uint24[] memory _fees,
         uint64 _network
     ) internal {
-        super.ethRestaking_Initialize(_restakingToken, _usdcAddress, _ethAddress, _swapAddress, _token0s, _token1s, _fees, _network);
+        super.ethRestaking_Initialize(
+            _restakingToken,
+            _usdcAddress,
+            _ethAddress,
+            _swapAddress,
+            _token0s,
+            _token1s,
+            _fees,
+            _network
+        );
 
         renzoRestakeProxy = IRenzoRestakeProxy(_restakingProxies[0]);
         zircuitRestakeProxy = IZircuitRestakeProxy(_restakingProxies[1]);
     }
 
-    function syncRestakingBalance() internal override{
+    function syncRestakingBalance() internal override {
         uint256 restakingTokenAmount = restakingToken.balanceOf(address(this));
-        if(address(zircuitRestakeProxy) != address(0)){
-            restakingTokenAmount += zircuitRestakeProxy.balance(address(restakingToken), address(this));
+        if (address(zircuitRestakeProxy) != address(0)) {
+            restakingTokenAmount += zircuitRestakeProxy.balance(
+                address(restakingToken),
+                address(this)
+            );
         }
 
-        uint256 ethAmount = restakingTokenAmount * swapProxy.getPriceOf(address(restakingToken), address(ethToken)) / 1e18;
-        restakingState.totalBalance = restakingState.unAllocatedBalance + ethAmount * swapProxy.getPriceOf(address(ethToken), address(usdcToken)) / 1e18;
+        uint256 ethAmount = ethToken.balanceOf(address(this)) +
+            (restakingTokenAmount *
+                swapProxy.getPriceOf(
+                    address(restakingToken),
+                    address(ethToken)
+                )) /
+            1e18;
+        restakingState.totalBalance =
+            restakingState.unAllocatedBalance +
+            (ethAmount *
+                swapProxy.getPriceOf(address(ethToken), address(usdcToken))) /
+            1e18;
     }
 
-    function depositToRestakingProxy(uint256 ethAmount, bytes calldata swapCallData) external override nonReentrant{
+    function depositToRestakingProxy(
+        uint256 ethAmount,
+        bytes calldata swapCallData
+    ) external override nonReentrant {
         _auth(ROCK_ONYX_OPTIONS_TRADER_ROLE);
 
-        if(address(renzoRestakeProxy) != address(0)) {
+        require(
+            ethToken.balanceOf(address(this)) >= ethAmount,
+            "INVALID_BALANCE"
+        );
+
+        if (address(renzoRestakeProxy) != address(0)) {
             IWETH(address(ethToken)).withdraw(ethAmount);
-            if(network == ARBTRIUM_NETWORK){
+            if (network == ARBTRIUM_NETWORK) {
                 renzoRestakeProxy.depositETH{value: ethAmount}(0, block.timestamp + 10 seconds);
-            }else if(network == ETHEREUM_NETWORK){
+            } else if (network == ETHEREUM_NETWORK) {
                 renzoRestakeProxy.depositETH{value: ethAmount}();
             }
-        }else{
+        } else {
             TransferHelper.safeApprove(address(ethToken), address(swapAggregator), ethAmount);
             swapAggregator.swapTo(
                 address(this),
@@ -62,27 +92,50 @@ contract RenzoZircuitRestakingStrategy is BaseRestakingStrategy {
                 swapCallData
             );
         }
-        
-        if(address(zircuitRestakeProxy) != address(0)){
+
+        if (address(zircuitRestakeProxy) != address(0)) {
             TransferHelper.safeApprove(address(restakingToken), address(zircuitRestakeProxy), restakingToken.balanceOf(address(this)));
-            zircuitRestakeProxy.depositFor(address(restakingToken), address(this), restakingToken.balanceOf(address(this)));
+            zircuitRestakeProxy.depositFor(
+                address(restakingToken),
+                address(this),
+                restakingToken.balanceOf(address(this))
+            );
         }
     }
 
-    function withdrawFromRestakingProxy(uint256 restakingTokenAmount, bytes calldata swapCallData) external override nonReentrant {
+    function withdrawFromRestakingProxy(
+        uint256 restakingTokenAmount,
+        bytes calldata swapCallData
+    ) external override nonReentrant {
         _auth(ROCK_ONYX_OPTIONS_TRADER_ROLE);
-        
-        if(address(zircuitRestakeProxy) != address(0)){
-            uint256 reTokenZircuitBalance = zircuitRestakeProxy.balance(address(restakingToken), address(this));
-            require(reTokenZircuitBalance >= restakingTokenAmount, "INVALID_ACQUIRE_AMOUNT");
-            
-            zircuitRestakeProxy.withdraw(address(restakingToken), restakingTokenAmount);
+
+        if (address(zircuitRestakeProxy) != address(0)) {
+            uint256 reTokenZircuitBalance = zircuitRestakeProxy.balance(
+                address(restakingToken),
+                address(this)
+            );
+            require(
+                reTokenZircuitBalance >= restakingTokenAmount,
+                "INVALID_ACQUIRE_AMOUNT"
+            );
+
+            zircuitRestakeProxy.withdraw(
+                address(restakingToken),
+                restakingTokenAmount
+            );
         }
-        
-        if(address(renzoRestakeProxy) != address(0) && address(renzoWithdrawRestakingPool) != address(0)) {   
+
+        if (
+            address(renzoRestakeProxy) != address(0) &&
+            address(renzoWithdrawRestakingPool) != address(0)
+        ) {
             TransferHelper.safeApprove(address(restakingToken), address(renzoWithdrawRestakingPool), restakingTokenAmount);
-            renzoWithdrawRestakingPool.withdraw(address(restakingToken), restakingTokenAmount);
-        }else{
+            renzoWithdrawRestakingPool.withdraw(
+                address(restakingToken),
+                restakingTokenAmount
+            );
+        } else {
+            TransferHelper.safeApprove(address(restakingToken), address(swapAggregator), restakingTokenAmount);
             swapAggregator.swapTo(
                 address(this),
                 address(restakingToken),
@@ -93,13 +146,31 @@ contract RenzoZircuitRestakingStrategy is BaseRestakingStrategy {
         }
     }
 
-    function updateRenzoWithdrawRestaking(address _renzoWithdrawRestakingPoolAddress) external nonReentrant {
-        _auth(ROCK_ONYX_ADMIN_ROLE);
+    function restakingBalance() external returns (uint256) {
+        uint256 restakingTokenAmount = restakingToken.balanceOf(address(this));
+        if (address(zircuitRestakeProxy) != address(0)) {
+            restakingTokenAmount += zircuitRestakeProxy.balance(
+                address(restakingToken),
+                address(this)
+            );
+        }
 
-        renzoWithdrawRestakingPool = IWithdrawRestakingPool(_renzoWithdrawRestakingPoolAddress);
+        return restakingTokenAmount;
     }
 
-    function updateRestakingPoolAddresses(address[] memory _restakingPoolAddresses) external nonReentrant {
+    function updateRenzoWithdrawRestaking(
+        address _renzoWithdrawRestakingPoolAddress
+    ) external nonReentrant {
+        _auth(ROCK_ONYX_ADMIN_ROLE);
+
+        renzoWithdrawRestakingPool = IWithdrawRestakingPool(
+            _renzoWithdrawRestakingPoolAddress
+        );
+    }
+
+    function updateRestakingPoolAddresses(
+        address[] memory _restakingPoolAddresses
+    ) external nonReentrant {
         _auth(ROCK_ONYX_ADMIN_ROLE);
 
         renzoRestakeProxy = IRenzoRestakeProxy(_restakingPoolAddresses[0]);
