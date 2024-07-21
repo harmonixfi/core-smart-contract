@@ -1,11 +1,13 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.19;
 
+import "../../../extensions/Uniswap/Uniswap.sol";
 import "../../../interfaces/ISwapAggregator.sol";
 import "hardhat/console.sol";
 
 abstract contract BaseSwapVault {
-    ISwapAggregator internal swapProxy;
+    UniSwap internal swapProxy;
+    ISwapAggregator internal swapAggregator;
     mapping(address => mapping(address => uint24)) internal fees;
 
     function baseSwapVault_Initialize(
@@ -14,7 +16,7 @@ abstract contract BaseSwapVault {
         address[] memory _token1s,
         uint24[] memory _fees
     ) internal virtual {
-        swapProxy = ISwapAggregator(_swapAddress);
+        swapProxy = UniSwap(_swapAddress);
 
         for (uint8 i = 0; i < _fees.length; i++) {
             fees[_token0s[i]][_token1s[i]] = _fees[i];
@@ -26,5 +28,9 @@ abstract contract BaseSwapVault {
         if(fee == 0) fee = fees[token1][token0];
         
         return fee;
+    }
+
+    function updateSwapAggregator(address _swapAggregator) internal {
+        swapAggregator = ISwapAggregator(_swapAggregator);
     }
 }

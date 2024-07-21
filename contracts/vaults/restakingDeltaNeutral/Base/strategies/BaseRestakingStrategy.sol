@@ -56,7 +56,7 @@ abstract contract BaseRestakingStrategy is BaseSwapVault, RockOnyxAccessControl,
         require(restakingState.unAllocatedBalance > usdcAmount, "INSUFICIENT_BALANCE");
 
         usdcToken.approve(address(swapProxy), usdcAmount);
-        uint256 ethAmount = swapProxy.swapTo(
+        uint256 ethAmount = swapAggregator.swapTo(
             address(this),
             address(usdcToken),
             usdcAmount,
@@ -73,7 +73,7 @@ abstract contract BaseRestakingStrategy is BaseSwapVault, RockOnyxAccessControl,
         _auth(ROCK_ONYX_OPTIONS_TRADER_ROLE);
 
         ethToken.approve(address(swapProxy), ethAmount);
-        uint256 usdcAmount = swapProxy.swapTo(
+        uint256 usdcAmount = swapAggregator.swapTo(
             address(this),
             address(ethToken),
             ethAmount,

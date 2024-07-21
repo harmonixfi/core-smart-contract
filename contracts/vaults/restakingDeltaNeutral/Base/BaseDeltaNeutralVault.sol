@@ -61,6 +61,12 @@ abstract contract BaseDeltaNeutralVault is
         accessControl_Initialize();
     }
 
+    function initializeV2(address _swapAddress) external nonReentrant {
+        _auth(ROCK_ONYX_ADMIN_ROLE);
+
+       updateSwapAggregator(_swapAddress);
+    }
+
     function updateFee(
         address[] memory _token0s,
         address[] memory _token1s,
@@ -81,14 +87,14 @@ abstract contract BaseDeltaNeutralVault is
     function deposit(uint256 amount, address tokenIn, bytes calldata swapCallData) external nonReentrant {
         require(!paused, "VAULT_PAUSED");
         uint256 assetDepositAmount = (tokenIn == vaultParams.asset) ? amount : 
-                            amount * swapProxy.getPriceOf(tokenIn, vaultParams.asset) / 10 ** ERC20(tokenIn).decimals();
+                            amount * swapAggregator.getPriceOf(tokenIn, vaultParams.asset) / 10 ** ERC20(tokenIn).decimals();
         require(assetDepositAmount >= vaultParams.minimumSupply, "MIN_AMOUNT");
         require(_totalValueLocked() + assetDepositAmount <= vaultParams.cap, "EXCEED_CAP");
 
         TransferHelper.safeTransferFrom(tokenIn, msg.sender, address(this), amount);
         if(tokenIn != vaultParams.asset){
             TransferHelper.safeApprove(tokenIn, address(swapProxy), amount);
-            amount = swapProxy.swapTo(
+            amount = swapAggregator.swapTo(
                 address(this),
                 address(tokenIn),
                 amount,
@@ -116,6 +122,8 @@ abstract contract BaseDeltaNeutralVault is
      * @param shares is the number of shares to withdraw
      */
     function initiateWithdrawal(uint256 shares) external nonReentrant {
+        require(!paused, "VAULT_PAUSED");
+
         DepositReceipt storage depositReceipt = depositReceipts[msg.sender];
         require(depositReceipt.shares >= shares, "INVALID_SHARES");
         require(withdrawals[msg.sender].shares == 0, "INVALID_WD_STATE");
@@ -177,7 +185,9 @@ abstract contract BaseDeltaNeutralVault is
      * @param shares is the number of shares to withdraw
      */
     function completeWithdrawal(uint256 shares) external nonReentrant {
+        require(!paused, "VAULT_PAUSED");
         require(withdrawals[msg.sender].shares >= shares, "INVALID_SHARES");
+
         uint256 withdrawAmount = (shares * withdrawals[msg.sender].withdrawAmount) / withdrawals[msg.sender].shares;
         uint256 performanceFee = (shares * withdrawals[msg.sender].performanceFee) / withdrawals[msg.sender].shares;
         uint256 feeAmount = performanceFee + networkCost;

@@ -54,7 +54,7 @@ contract RenzoZircuitRestakingStrategy is BaseRestakingStrategy {
             }
         }else{
             ethToken.approve(address(swapProxy), ethAmount);
-            swapProxy.swapTo(
+            swapAggregator.swapTo(
                 address(this),
                 address(ethToken),
                 ethAmount,
@@ -83,7 +83,7 @@ contract RenzoZircuitRestakingStrategy is BaseRestakingStrategy {
             restakingToken.approve(address(renzoWithdrawRestakingPool), restakingTokenAmount);
             renzoWithdrawRestakingPool.withdraw(address(restakingToken), restakingTokenAmount);
         }else{
-            swapProxy.swapTo(
+            swapAggregator.swapTo(
                 address(this),
                 address(restakingToken),
                 restakingTokenAmount,

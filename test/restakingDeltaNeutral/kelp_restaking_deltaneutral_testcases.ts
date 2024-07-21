@@ -135,6 +135,11 @@ describe("KelpDaRestakingDeltaNeutralVault", function () {
   
     await kelpRestakingDNVault.waitForDeployment();
   
+    const initiateV2Tx = await kelpRestakingDNVault
+      .connect(admin)
+      .initializeV2(await swapAggregatorContract.getAddress());
+    await initiateV2Tx.wait();
+
     console.log(
       "deploy kelpRestakingDNVault proxy successfully: %s",
       await kelpRestakingDNVault.getAddress()
@@ -286,7 +291,7 @@ describe("KelpDaRestakingDeltaNeutralVault", function () {
     await openPositionTx.wait();
   });
 
-  it.skip("user deposit -> deposit to perp dex -> open position -> deposit to restaking vendor -> init withdraw -> withdraw from restaking vencor -> close position -> complete withdraw", async function () {
+  it("user deposit -> deposit to perp dex -> open position -> deposit to restaking vendor -> init withdraw -> withdraw from restaking vencor -> close position -> complete withdraw", async function () {
     console.log(
       "-------------deposit to restakingDeltaNeutralVault---------------"
     );
@@ -784,5 +789,15 @@ describe("KelpDaRestakingDeltaNeutralVault", function () {
     );
   
     await newContract.waitForDeployment();
+
+    await upgrades.upgradeProxy(
+      contractAddress,
+      newContract,
+      {
+        call: {fn: 'reInitialize'},
+        kind: "uups"
+      }
+      );
+    console.log("Version 2 deployed.");
   });
 });

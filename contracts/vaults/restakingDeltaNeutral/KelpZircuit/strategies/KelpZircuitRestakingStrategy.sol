@@ -58,7 +58,7 @@ contract KelpZircuitRestakingStrategy is BaseRestakingStrategy {
             }
         }else{
             ethToken.approve(address(swapProxy), ethAmount);
-            swapProxy.swapTo(
+            swapAggregator.swapTo(
                 address(this),
                 address(ethToken),
                 ethAmount,
@@ -85,7 +85,7 @@ contract KelpZircuitRestakingStrategy is BaseRestakingStrategy {
             kelpWithdrawRestakingPool.withdraw(address(restakingToken), restakingTokenAmount);
         }else{
             restakingToken.approve(address(swapProxy), restakingTokenAmount);
-            swapProxy.swapTo(
+            swapAggregator.swapTo(
                 address(this),
                 address(restakingToken),
                 restakingTokenAmount,

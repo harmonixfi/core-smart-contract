@@ -32,7 +32,7 @@ contract WstEthStakingStrategy is BaseRestakingStrategy {
         _auth(ROCK_ONYX_OPTIONS_TRADER_ROLE);
 
         ethToken.approve(address(swapProxy), ethAmount);
-            swapProxy.swapTo(
+            swapAggregator.swapTo(
                 address(this),
                 address(ethToken),
                 ethAmount,
@@ -45,7 +45,7 @@ contract WstEthStakingStrategy is BaseRestakingStrategy {
         _auth(ROCK_ONYX_OPTIONS_TRADER_ROLE);
 
         restakingToken.approve(address(swapProxy), restakingTokenAmount);
-        swapProxy.swapTo(
+        swapAggregator.swapTo(
             address(this),
             address(restakingToken),
             restakingTokenAmount,

@@ -4,6 +4,7 @@ pragma solidity ^0.8.19;
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "../interfaces/IPriceConsumerProxy.sol";
 import "../interfaces/ISwapAggregator.sol";
+import "../extensions/TransferHelper.sol";
 import "hardhat/console.sol";
 
 abstract contract BaseSwapAggregator is ISwapAggregator {
@@ -31,14 +32,14 @@ abstract contract BaseSwapAggregator is ISwapAggregator {
         address tokenOut,
         bytes calldata swapCallData
     ) external override returns (uint256){
-        IERC20(tokenIn).transferFrom(msg.sender, address(this), amountIn);
-        IERC20(tokenIn).approve(exchangeAddress, amountIn);
+        TransferHelper.safeTransferFrom(tokenIn, msg.sender, address(this), amountIn);
+        TransferHelper.safeApprove(tokenIn, exchangeAddress, amountIn);
         
         (bool success,) = exchangeAddress.call(swapCallData);
         require(success, "SWAP_EXECUTION_FAIL");
 
         uint256 outTokenAmount = IERC20(tokenOut).balanceOf(address(this));
-        IERC20(tokenOut).transfer(recipient, outTokenAmount);
+        TransferHelper.safeTransfer(tokenOut, recipient, outTokenAmount);
         return outTokenAmount;
     }
 }
