@@ -1,19 +1,20 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.19;
 
+import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "../interfaces/IPriceConsumerProxy.sol";
 import "../interfaces/ISwapAggregator.sol";
 import "hardhat/console.sol";
 
 abstract contract BaseSwapAggregator is ISwapAggregator {
-    IPriceConsumerProxy internal priceConsumer;
-    address internal owner;
+    IPriceConsumerProxy immutable internal priceConsumer;
+    address immutable internal exchangeAddress;
 
     constructor(
-        address _admin,
+        address _exchangeAddress,
         address _priceConsumer) {
+        exchangeAddress = _exchangeAddress;
         priceConsumer = IPriceConsumerProxy(_priceConsumer);
-        owner = _admin;
     }
 
     function getPriceOf(
@@ -23,5 +24,21 @@ abstract contract BaseSwapAggregator is ISwapAggregator {
         return priceConsumer.getPriceOf(token0, token1);
     }
 
-    function swapTo(address recipient, address tokenIn, uint256 amountIn, address tokenOut, bytes calldata swapCallData) external virtual returns (uint256) {}
+    function swapTo(
+        address recipient,
+        address tokenIn,
+        uint256 amountIn,
+        address tokenOut,
+        bytes calldata swapCallData
+    ) external override returns (uint256){
+        IERC20(tokenIn).transferFrom(msg.sender, address(this), amountIn);
+        IERC20(tokenIn).approve(exchangeAddress, amountIn);
+        
+        (bool success,) = exchangeAddress.call(swapCallData);
+        require(success, "SWAP_EXECUTION_FAIL");
+
+        uint256 outTokenAmount = IERC20(tokenOut).balanceOf(address(this));
+        IERC20(tokenOut).transfer(recipient, outTokenAmount);
+        return outTokenAmount;
+    }
 }

@@ -72,11 +72,11 @@ abstract contract BaseRestakingStrategy is BaseSwapVault, RockOnyxAccessControl,
     function closePosition(uint256 ethAmount, bytes calldata swapCallData) external nonReentrant {
         _auth(ROCK_ONYX_OPTIONS_TRADER_ROLE);
 
-        ethToken.approve(address(swapProxy), ethToken.balanceOf(address(this)));
+        ethToken.approve(address(swapProxy), ethAmount);
         uint256 usdcAmount = swapProxy.swapTo(
             address(this),
             address(ethToken),
-            ethToken.balanceOf(address(this)),
+            ethAmount,
             address(usdcToken),
             swapCallData
         );
@@ -90,7 +90,7 @@ abstract contract BaseRestakingStrategy is BaseSwapVault, RockOnyxAccessControl,
     function withdrawFromRestakingProxy(uint256 ethAmount, bytes calldata swapCallData) external virtual nonReentrant {}
 
     function syncRestakingBalance() internal virtual{
-        uint256 ethAmount = restakingToken.balanceOf(address(this)) * swapProxy.getPriceOf(address(restakingToken), address(ethToken)) / 1e18;
+        uint256 ethAmount = ethToken.balanceOf(address(this)) + restakingToken.balanceOf(address(this)) * swapProxy.getPriceOf(address(restakingToken), address(ethToken)) / 1e18;
         restakingState.totalBalance = restakingState.unAllocatedBalance + ethAmount * swapProxy.getPriceOf(address(restakingToken), address(ethToken)) / 1e18;
     }
 

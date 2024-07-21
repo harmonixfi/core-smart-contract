@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.19;
 
+import "../../../extensions/TransferHelper.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 import "../../../extensions/RockOnyxAccessControl.sol";
-import "../../../extensions/Uniswap/Uniswap.sol";
 import "../../../lib/ShareMath.sol";
 import "../Base/BaseSwapVault.sol";
 import "./../structs/RestakingDeltaNeutralStruct.sol";
@@ -79,9 +79,11 @@ abstract contract BaseDeltaNeutralVault is
      * @param amount is the amount of `dasset` deposited
      */
     function deposit(uint256 amount, address tokenIn, bytes calldata swapCallData) external nonReentrant {
-        require(paused == false, "VAULT_PAUSED");
-        require(amount >= vaultParams.minimumSupply, "MIN_AMOUNT");
-        require(_totalValueLocked() + amount <= vaultParams.cap, "EXCEED_CAP");
+        require(!paused, "VAULT_PAUSED");
+        uint256 assetDepositAmount = (tokenIn == vaultParams.asset) ? amount : 
+                            amount * swapProxy.getPriceOf(tokenIn, vaultParams.asset) / 10 ** ERC20(tokenIn).decimals();
+        require(assetDepositAmount >= vaultParams.minimumSupply, "MIN_AMOUNT");
+        require(_totalValueLocked() + assetDepositAmount <= vaultParams.cap, "EXCEED_CAP");
 
         TransferHelper.safeTransferFrom(tokenIn, msg.sender, address(this), amount);
         if(tokenIn != vaultParams.asset){
@@ -107,7 +109,6 @@ abstract contract BaseDeltaNeutralVault is
 
         // migration
         updateDepositArr(depositReceipts[msg.sender]);
-        // end migration
     }
 
     /**
@@ -288,7 +289,7 @@ abstract contract BaseDeltaNeutralVault is
     /**
      * @notice get vault fees
      */
-    function getManagementFee() public view returns (uint256, uint256) {
+    function getManagementFee() external view returns (uint256, uint256) {
         return (_getManagementFee(block.timestamp), block.timestamp);
     }
 
@@ -327,7 +328,7 @@ abstract contract BaseDeltaNeutralVault is
     ) external nonReentrant {
         _auth(ROCK_ONYX_ADMIN_ROLE);
 
-        IERC20(tokenAddress).transfer(receiver, amount);
+        TransferHelper.safeTransfer(tokenAddress, receiver, amount);
     }
 
     // migration

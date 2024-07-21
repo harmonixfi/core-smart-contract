@@ -32,7 +32,6 @@ contract KelpZircuitRestakingStrategy is BaseRestakingStrategy {
         refId = _refId;
         kelpRestakeProxy = IKelpRestakeProxy(_restakingProxies[0]);
         zircuitRestakeProxy = IZircuitRestakeProxy(_restakingProxies[1]);
-
     }
 
     function syncRestakingBalance() internal override{
@@ -41,12 +40,14 @@ contract KelpZircuitRestakingStrategy is BaseRestakingStrategy {
             restakingTokenAmount += zircuitRestakeProxy.balance(address(restakingToken), address(this));
         }
 
-        uint256 ethAmount = restakingTokenAmount * swapProxy.getPriceOf(address(restakingToken), address(ethToken)) / 1e18;
+        uint256 ethAmount = ethToken.balanceOf(address(this)) + 
+            restakingTokenAmount * swapProxy.getPriceOf(address(restakingToken), address(ethToken)) / 1e18;
         restakingState.totalBalance = restakingState.unAllocatedBalance + ethAmount * swapProxy.getPriceOf(address(ethToken), address(usdcToken)) / 1e18;
     }
 
     function depositToRestakingProxy(uint256 ethAmount, bytes calldata swapCallData) external override nonReentrant{
         _auth(ROCK_ONYX_OPTIONS_TRADER_ROLE);
+        require(ethToken.balanceOf(address(this)) >= ethAmount, "INVALID_BALANCE");
 
         if(address(kelpRestakeProxy) != address(0)) {
             IWETH(address(ethToken)).withdraw(ethAmount);
@@ -76,9 +77,6 @@ contract KelpZircuitRestakingStrategy is BaseRestakingStrategy {
         _auth(ROCK_ONYX_OPTIONS_TRADER_ROLE);
 
         if(address(zircuitRestakeProxy) != address(0)){
-            uint256 reTokenZircuitBalance = zircuitRestakeProxy.balance(address(restakingToken), address(this));
-            require(reTokenZircuitBalance >= restakingTokenAmount, "INVALID_ACQUIRE_AMOUNT");
-            
             zircuitRestakeProxy.withdraw(address(restakingToken), restakingTokenAmount);
         }
         
@@ -86,15 +84,24 @@ contract KelpZircuitRestakingStrategy is BaseRestakingStrategy {
             restakingToken.approve(address(kelpWithdrawRestakingPool), restakingTokenAmount);
             kelpWithdrawRestakingPool.withdraw(address(restakingToken), restakingTokenAmount);
         }else{
-            
+            restakingToken.approve(address(swapProxy), restakingTokenAmount);
             swapProxy.swapTo(
                 address(this),
                 address(restakingToken),
                 restakingTokenAmount,
                 address(ethToken),
                 swapCallData
-            );    
+            );
         }
+    }
+
+    function restakingBalance() external returns(uint256){
+        uint256 restakingTokenAmount = restakingToken.balanceOf(address(this));
+        if(address(zircuitRestakeProxy) != address(0)){
+            restakingTokenAmount += zircuitRestakeProxy.balance(address(restakingToken), address(this));
+        }
+
+        return restakingTokenAmount;
     }
 
     function updateKelpWithdrawRestaking(address _kelpWithdrawRestakingPoolAddress) external nonReentrant {
