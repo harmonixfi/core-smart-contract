@@ -54,7 +54,7 @@ contract SolvVault is RockOnyxAccessControl, ReentrancyGuardUpgradeable {
     );
 
     event requestWithdrawal(address user, address asset, uint256 shares);
-    event WithDrawal(address user, address asset, uint256 shares, uint256 amount);
+    event WithDrawal(address user, address asset, uint256 shares, uint256 amount, uint256 balanceBeforeWithdrawal, uint256 balanceAfterWithdrawal);
 
     function initialize(
         address _admin,
@@ -171,7 +171,6 @@ contract SolvVault is RockOnyxAccessControl, ReentrancyGuardUpgradeable {
     ) internal nonReentrant {
         uint256 openFundRedemptionId = depositReceipts[msg.sender].tokenIdRedeem;
         require(openFundRedemptionId != 0, "INVALID_REDEMPTION_ID");
-        require(shares > 0, "INVALID_CLAIM_VALUE");
 
         IERC721Enumerable(tokenGOEFR).approve(address(GOEFR), openFundRedemptionId);
 
@@ -199,16 +198,19 @@ contract SolvVault is RockOnyxAccessControl, ReentrancyGuardUpgradeable {
         require(withdrawals[msg.sender].shares >= shares, "INVALID_SHARES");
 
         redeem(shares);
-        
+
+        uint256 balanceBeforeWithdrawal = IERC20(vaultParams.asset).balanceOf(address(this));
         uint256 withdrawAmount = shares * this.getPricePerShares();
-        require(withdrawAmount / 1e18 <= IERC20(vaultParams.asset).balanceOf(address(this)), "INSUFFICIENT_BALANCE");
+        require(withdrawAmount / 1e18 <= balanceBeforeWithdrawal, "INSUFFICIENT_BALANCE");
 
         withdrawals[msg.sender].shares -= shares;
 
         IERC20(vaultParams.asset).approve(address(this), withdrawAmount);
         IERC20(vaultParams.asset).transferFrom(address(this), msg.sender, withdrawAmount);
-        
-        emit WithDrawal(msg.sender, vaultParams.asset, shares, withdrawAmount);
+
+        uint256 balanceAfterWithdrawal = IERC20(vaultParams.asset).balanceOf(address(this));
+
+        emit WithDrawal(msg.sender, vaultParams.asset, shares, withdrawAmount, balanceBeforeWithdrawal, balanceAfterWithdrawal);
     }
 
     /**
