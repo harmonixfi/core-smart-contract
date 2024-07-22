@@ -52,8 +52,8 @@ contract WstEthStakingStrategy is BaseRestakingStrategy {
     ) external override nonReentrant {
         _auth(ROCK_ONYX_OPTIONS_TRADER_ROLE);
 
-        TransferHelper.safeApprove(address(ethToken), address(swapAggregator), ethAmount);
-        swapAggregator.swapTo(
+        TransferHelper.safeApprove(address(ethToken), address(getSwapAggregator()), ethAmount);
+        getSwapAggregator().swapTo(
             address(this),
             address(ethToken),
             ethAmount,
@@ -68,8 +68,8 @@ contract WstEthStakingStrategy is BaseRestakingStrategy {
     ) external override nonReentrant {
         _auth(ROCK_ONYX_OPTIONS_TRADER_ROLE);
 
-        TransferHelper.safeApprove(address(restakingToken), address(swapAggregator), restakingTokenAmount);
-        swapAggregator.swapTo(
+        TransferHelper.safeApprove(address(restakingToken), address(getSwapAggregator()), restakingTokenAmount);
+        getSwapAggregator().swapTo(
             address(this),
             address(restakingToken),
             restakingTokenAmount,

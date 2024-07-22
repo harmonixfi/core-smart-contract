@@ -87,14 +87,14 @@ abstract contract BaseDeltaNeutralVault is
     function deposit(uint256 amount, address tokenIn, bytes calldata swapCallData) external nonReentrant {
         require(!paused, "VAULT_PAUSED");
         uint256 assetDepositAmount = (tokenIn == vaultParams.asset) ? amount : 
-                            amount * swapAggregator.getPriceOf(tokenIn, vaultParams.asset) / 10 ** ERC20(tokenIn).decimals();
+                            amount * getSwapAggregator().getPriceOf(tokenIn, vaultParams.asset) / 10 ** ERC20(tokenIn).decimals();
         require(assetDepositAmount >= vaultParams.minimumSupply, "MIN_AMOUNT");
         require(_totalValueLocked() + assetDepositAmount <= vaultParams.cap, "EXCEED_CAP");
 
         TransferHelper.safeTransferFrom(tokenIn, msg.sender, address(this), amount);
         if(tokenIn != vaultParams.asset){
-            TransferHelper.safeApprove(tokenIn, address(swapAggregator), amount);
-            amount = swapAggregator.swapTo(
+            TransferHelper.safeApprove(tokenIn, address(getSwapAggregator()), amount);
+            amount = getSwapAggregator().swapTo(
                 address(this),
                 address(tokenIn),
                 amount,

@@ -83,8 +83,8 @@ contract RenzoZircuitRestakingStrategy is BaseRestakingStrategy {
                 renzoRestakeProxy.depositETH{value: ethAmount}();
             }
         } else {
-            TransferHelper.safeApprove(address(ethToken), address(swapAggregator), ethAmount);
-            swapAggregator.swapTo(
+            TransferHelper.safeApprove(address(ethToken), address(getSwapAggregator()), ethAmount);
+            getSwapAggregator().swapTo(
                 address(this),
                 address(ethToken),
                 ethAmount,
@@ -135,8 +135,8 @@ contract RenzoZircuitRestakingStrategy is BaseRestakingStrategy {
                 restakingTokenAmount
             );
         } else {
-            TransferHelper.safeApprove(address(restakingToken), address(swapAggregator), restakingTokenAmount);
-            swapAggregator.swapTo(
+            TransferHelper.safeApprove(address(restakingToken), address(getSwapAggregator()), restakingTokenAmount);
+            getSwapAggregator().swapTo(
                 address(this),
                 address(restakingToken),
                 restakingTokenAmount,

@@ -7,9 +7,8 @@ import "hardhat/console.sol";
 
 abstract contract BaseSwapVault {
     UniSwap internal swapProxy;
-    ISwapAggregator internal swapAggregator;
     mapping(address => mapping(address => uint24)) internal fees;
-
+    
     function baseSwapVault_Initialize(
         address _swapAddress,
         address[] memory _token0s,
@@ -30,7 +29,11 @@ abstract contract BaseSwapVault {
         return fee;
     }
 
-    function updateSwapAggregator(address _swapAggregator) internal {
-        swapAggregator = ISwapAggregator(_swapAggregator);
+    function updateSwapAggregator(address _swapProxy) internal {
+        swapProxy = UniSwap(_swapProxy);
+    }
+
+    function getSwapAggregator() internal view returns(ISwapAggregator){
+        return ISwapAggregator(address(swapProxy));
     }
 }
