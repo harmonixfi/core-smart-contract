@@ -14,6 +14,7 @@ import "../../lib/FullMath.sol";
 import "../../interfaces/Solv/ITokenGOEFR.sol";
 import "../../extensions/TransferHelper.sol";
 import "./structs/SolvStruct.sol";
+import "../../extensions/Utils.sol";
 import "hardhat/console.sol";
 
 contract SolvVault is RockOnyxAccessControl, ReentrancyGuardUpgradeable {
@@ -62,7 +63,7 @@ contract SolvVault is RockOnyxAccessControl, ReentrancyGuardUpgradeable {
         address _wbtc,
         address _tokenGOEFS,
         address _tokenGOEFR,
-        bytes32 _poolId,
+        string memory _poolId,
         uint8 _decimal,
         uint256 _minimumSupply,
         uint256 _cap
@@ -73,7 +74,7 @@ contract SolvVault is RockOnyxAccessControl, ReentrancyGuardUpgradeable {
         tokenGOEFR = _tokenGOEFR;
         vaultParams = VaultParams(_decimal, _wbtc, _minimumSupply, _cap);
         vaultState = VaultState(0);
-        poolId = _poolId;
+        poolId = Utils.stringToBytes32(_poolId);
         paused = false;
 
         _grantRole(ROCK_ONYX_ADMIN_ROLE, _admin);
