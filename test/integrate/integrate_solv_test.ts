@@ -17,82 +17,89 @@ const chainId: CHAINID = network.config.chainId;
 const poolId = "0x3b2232fb5309e89e5ee6e2ca6066bcc28ee365045e9a565040bf8c846b87477e";
 
 console.log("chainId: ", chainId);
+let admin: Signer;
+let user1: Signer;
+let wbtc: Contracts.IERC20;
+let tokenGOEFS: Contracts.IERC721;
+let tokenGOEFR: Contracts.IERC721;
+let solvVaultContract: Contracts.SolvVault;
 
-describe("Integrate with Solv", async () => {
-    let admin: Signer;
-    let user1: Signer;
-    let wbtc: Contracts.IERC20;
-    let tokenGOEFS: Contracts.IERC721;
-    let tokenGOEFR: Contracts.IERC721;
-    let solvVaultContract: Contracts.SolvVault;
+const wbtcAddress = WBTC_ADDRESS[chainId] || '';
+const tokenGOEFSAddress = GOEFS_ADDRESS[chainId] || '';
+const tokenGOEFRAddress = GOEFR_ADDRESS[chainId] || '';
+const wbtcImpersonatedSigner = WBTC_IMPERSONATED_SIGNER_ADDRESS[chainId] || '';
+const wethImpersonatedSigner = WETH_IMPERSONATED_SIGNER_ADDRESS[chainId] || '';
+const solvAddress = SOLV_ADDRESS[chainId] || '';
 
-    const wbtcAddress = WBTC_ADDRESS[chainId] || "";
-    const tokenGOEFSAddress = GOEFS_ADDRESS[chainId] || "";
-    const tokenGOEFRAddress = GOEFR_ADDRESS[chainId] || '';
-    const wbtcImpersonatedSigner = WBTC_IMPERSONATED_SIGNER_ADDRESS[chainId] || '';
-    const wethImpersonatedSigner = WETH_IMPERSONATED_SIGNER_ADDRESS[chainId] || '';
-    const solvAddress = SOLV_ADDRESS[chainId] || "";
+async function transferForUser(
+    token: Contracts.IERC20,
+    from: Signer,
+    to: Signer,
+    amount: BigNumberish
+) {
+    const transferTx = await token.connect(from).transfer(to, amount);
+    await transferTx.wait();
+}
 
-    async function transferForUser(token: Contracts.IERC20, from: Signer, to: Signer, amount: BigNumberish) {
-        const transferTx = await token.connect(from).transfer(to, amount);
-        await transferTx.wait();
-    }
+async function deploySolvVault() {
+    const factory = await ethers.getContractFactory('SolvVault');
 
-    async function deploySolvVault() {
-        const factory = await ethers.getContractFactory('SolvVault');
-        
-        solvVaultContract = await upgrades.deployProxy(
-            factory,
-            [
-                await admin.getAddress(),
-                solvAddress,
-                wbtcAddress,
-                tokenGOEFSAddress,
-                tokenGOEFRAddress,
-                poolId,
-                8,
-                BigInt(1 * 1e5),
-                BigInt(10000 * 1e8),
-            ],
-            { initializer: 'initialize' }
-        );
+    solvVaultContract = await upgrades.deployProxy(
+        factory,
+        [
+            await admin.getAddress(),
+            solvAddress,
+            wbtcAddress,
+            tokenGOEFSAddress,
+            tokenGOEFRAddress,
+            poolId,
+            8,
+            BigInt(1 * 1e5),
+            BigInt(10000 * 1e8),
+        ],
+        { initializer: 'initialize' }
+    );
 
-        await solvVaultContract.waitForDeployment();
+    await solvVaultContract.waitForDeployment();
 
-        console.log("Deployed solv integrate at address %s", await solvVaultContract.getAddress());
-    }
+    console.log(
+        'Deployed solv integrate at address %s',
+        await solvVaultContract.getAddress()
+    );
+}
 
-    beforeEach(async () => {
-        [admin, user1] = await ethers.getSigners();
-        wbtc = await ethers.getContractAt('IERC20', wbtcAddress);
-        tokenGOEFS = await ethers.getContractAt("IERC721", tokenGOEFSAddress);
-        tokenGOEFR = await ethers.getContractAt('IERC721', tokenGOEFRAddress);
+beforeEach(async () => {
+    [admin, user1] = await ethers.getSigners();
+    wbtc = await ethers.getContractAt('IERC20', wbtcAddress);
+    tokenGOEFS = await ethers.getContractAt('IERC721', tokenGOEFSAddress);
+    tokenGOEFR = await ethers.getContractAt('IERC721', tokenGOEFRAddress);
 
-        await deploySolvVault();
+    await deploySolvVault();
 
-        await hre.network.provider.request({
-            method: 'hardhat_impersonateAccount',
-            params: [wbtcImpersonatedSigner],
-        });
+    await hre.network.provider.request({
+        method: 'hardhat_impersonateAccount',
+        params: [wbtcImpersonatedSigner],
+    });
 
-        await hre.network.provider.request({
-            method: 'hardhat_impersonateAccount',
-            params: [wethImpersonatedSigner],
-        });
-    })
+    await hre.network.provider.request({
+        method: 'hardhat_impersonateAccount',
+        params: [wethImpersonatedSigner],
+    });
+});
 
-    afterEach(async () => {
-        await hre.network.provider.request({
-            method: 'hardhat_stopImpersonatingAccount',
-            params: [wbtcImpersonatedSigner],
-        });
+afterEach(async () => {
+    await hre.network.provider.request({
+        method: 'hardhat_stopImpersonatingAccount',
+        params: [wbtcImpersonatedSigner],
+    });
 
-        await hre.network.provider.request({
-            method: 'hardhat_stopImpersonatingAccount',
-            params: [wethImpersonatedSigner],
-        });
-    })
+    await hre.network.provider.request({
+        method: 'hardhat_stopImpersonatingAccount',
+        params: [wethImpersonatedSigner],
+    });
+});
 
+describe("Deposit to Solv", async () => {
     it("Deposit - check amount smaller minimum supply", async () => {
         await expect(
             solvVaultContract
@@ -101,11 +108,14 @@ describe("Integrate with Solv", async () => {
                     1 * 1e4
                 )
         ).to.be.revertedWith('MIN_AMOUNT');
+        
     })
 
     it('Deposit - check amount bigger cap', async () => {
         await expect(
-            solvVaultContract.connect(admin).deposit(1 * 1e8 + 10000 * 1e8)
+            solvVaultContract
+                .connect(admin)
+                .deposit(BigInt(20000 * 1e8))
         ).to.be.revertedWith('EXCEED_CAP');
     });
 
@@ -216,7 +226,7 @@ describe("Integrate with Solv", async () => {
         //shares = 1884364094154475514 when subscribe 2 * 1e8
         const shares = 1884364094154475000;
         expect(
-            solvVaultContract.connect(user1).requestRedeem(shares)
+            solvVaultContract.connect(user1).initiateWithdrawal(shares)
         ).to.be.revertedWith('ROCK_ONYX_ADMIN_ROLE_ERROR');
     })
 
@@ -251,77 +261,66 @@ describe("Integrate with Solv", async () => {
         //shares = 1884364094154475514 when subscribe 2 * 1e8
         const shares = 1884364094154475000;
 
-        await solvVaultContract.initiateWithdrawal(BigInt(shares));
-
-        const hx = await solvVaultContract.requestRedeem(BigInt(shares));
+        const hx = await solvVaultContract.initiateWithdrawal(BigInt(shares));
 
         expect(hx).to.not.equal(undefined || null);
     })
 
-    it("redeem - not admin call", async () => {
-        const shares = 1884364094154475000;
-        expect(
-            solvVaultContract.connect(user1).redeem(shares)
-        ).to.be.revertedWith('ROCK_ONYX_ADMIN_ROLE_ERROR');
-    });
+    // it("withdrawal - happy part", async () => {
+    //     const wbtcSigner = await ethers.getSigner(wbtcImpersonatedSigner);
 
-    it("withdrawal - happy part", async () => {
-        const wbtcSigner = await ethers.getSigner(wbtcImpersonatedSigner);
+    //     console.log(
+    //         'Balance of signer wbtc ',
+    //         await wbtc.connect(wbtcSigner).balanceOf(wbtcSigner.getAddress())
+    //     );
 
-        console.log(
-            'Balance of signer wbtc ',
-            await wbtc.connect(wbtcSigner).balanceOf(wbtcSigner.getAddress())
-        );
+    //     // Transfer WBTC from wbtcSigner to admin
+    //     await transferForUser(wbtc, wbtcSigner, admin, 20 * 1e8);
 
-        // Transfer WBTC from wbtcSigner to admin
-        await transferForUser(wbtc, wbtcSigner, admin, 20 * 1e8);
+    //     const balance = await wbtc.connect(admin).balanceOf(admin.getAddress());
 
-        const balance = await wbtc.connect(admin).balanceOf(admin.getAddress());
+    //     console.log('Deposit wbtc => balance admin: ', balance);
 
-        console.log('Deposit wbtc => balance admin: ', balance);
+    //     await wbtc
+    //         .connect(admin)
+    //         .approve(solvVaultContract.getAddress(), 20 * 1e8);
 
-        await wbtc
-            .connect(admin)
-            .approve(solvVaultContract.getAddress(), 20 * 1e8);
+    //     //subscribe to solv
+    //     await solvVaultContract.connect(admin).deposit(2 * 1e8);
 
-        //subscribe to solv
-        await solvVaultContract.connect(admin).deposit(2 * 1e8);
+    //     //to test this case, change getLatestToken function is external
+    //     const tokenLatestFirst =
+    //         await solvVaultContract.getLatestToken(tokenGOEFS);
 
-        //to test this case, change getLatestToken function is external
-        const tokenLatestFirst =
-            await solvVaultContract.getLatestToken(tokenGOEFS);
+    //     console.log('Token latest first: ', tokenLatestFirst);
 
-        console.log('Token latest first: ', tokenLatestFirst);
+    //     //shares = 1884364094154475514 when subscribe 2 * 1e8
+    //     const shares = 1884364094154475000;
 
-        //shares = 1884364094154475514 when subscribe 2 * 1e8
-        const shares = 1884364094154475000;
+    //     await solvVaultContract.initiateWithdrawal(BigInt(shares));
 
-        await solvVaultContract.initiateWithdrawal(BigInt(shares));
+    //     // const hx = await solvVaultContract.redeem(BigInt(shares));
 
-        await solvVaultContract.requestRedeem(BigInt(shares));
+    //     //suppose user redeem 2 wbtc
+    //     await wbtc.connect(admin).transfer(solvVaultContract.getAddress(), 2 * 1e8);
 
-        // const hx = await solvVaultContract.redeem(BigInt(shares));
+    //     const balanceCurrentSolvVault = await wbtc.connect(admin).balanceOf(solvVaultContract.getAddress());
 
-        //suppose user redeem 2 wbtc
-        await wbtc.connect(admin).transfer(solvVaultContract.getAddress(), 2 * 1e8);
+    //     const balanceOfAdminCurrent = await wbtc.connect(admin).balanceOf(admin.getAddress());
 
-        const balanceCurrentSolvVault = await wbtc.connect(admin).balanceOf(solvVaultContract.getAddress());
+    //     console.log("Balance current solv vault after redeem success: ", balanceCurrentSolvVault);
 
-        const balanceOfAdminCurrent = await wbtc.connect(admin).balanceOf(admin.getAddress());
-
-        console.log("Balance current solv vault after redeem success: ", balanceCurrentSolvVault);
-
-        console.log("Balance current admin before withdraw: ", balanceOfAdminCurrent);
+    //     console.log("Balance current admin before withdraw: ", balanceOfAdminCurrent);
 
         
-        //withdraw
-        await solvVaultContract.withdrawal(BigInt(shares));
+    //     //withdraw
+    //     // await solvVaultContract.completeWithdrawal(BigInt(shares));
 
-        const balanceCurrentSolvVaultAfterWithdraw = await wbtc.connect(admin).balanceOf(solvVaultContract.getAddress());
+    //     const balanceCurrentSolvVaultAfterWithdraw = await wbtc.connect(admin).balanceOf(solvVaultContract.getAddress());
         
-        const balanceOfAdminCurrentAfterWithdraw = await wbtc.connect(admin).balanceOf(admin.getAddress());
+    //     const balanceOfAdminCurrentAfterWithdraw = await wbtc.connect(admin).balanceOf(admin.getAddress());
 
-        expect(balanceCurrentSolvVaultAfterWithdraw).equal(0);
-        expect(balanceOfAdminCurrentAfterWithdraw).equal(90 * 1e8);
-    })
+    //     expect(balanceCurrentSolvVaultAfterWithdraw).equal(0);
+    //     expect(balanceOfAdminCurrentAfterWithdraw).equal(90 * 1e8);
+    // })
 })

@@ -65,7 +65,7 @@ contract SolvVault is Initializable, RockOnyxAccessControl, ReentrancyGuardUpgra
         address _wbtc,
         address _tokenGOEFS,
         address _tokenGOEFR,
-        string memory _poolId,
+        bytes32 _poolId,
         uint8 _decimal,
         uint256 _minimumSupply,
         uint256 _cap
@@ -76,7 +76,7 @@ contract SolvVault is Initializable, RockOnyxAccessControl, ReentrancyGuardUpgra
         tokenGOEFR = _tokenGOEFR;
         vaultParams = VaultParams(_decimal, _wbtc, _minimumSupply, _cap);
         vaultState = VaultState(0);
-        poolId = Utils.stringToBytes32(_poolId);
+        poolId = _poolId;
         paused = false;
 
         _grantRole(ROCK_ONYX_ADMIN_ROLE, _admin);
@@ -134,7 +134,7 @@ contract SolvVault is Initializable, RockOnyxAccessControl, ReentrancyGuardUpgra
      */
     function requestRedeem(
         uint256 shares
-    ) internal nonReentrant {
+    ) internal {
         uint256 openFundShareId = depositReceipts[msg.sender].tokenIdSubscribe;
         uint256 openFundRedemptionId = depositReceipts[msg.sender].tokenIdRedeem;
         vaultState.totalShares -= shares;
@@ -171,7 +171,7 @@ contract SolvVault is Initializable, RockOnyxAccessControl, ReentrancyGuardUpgra
      */
     function redeem(
         uint256 shares
-    ) internal nonReentrant {
+    ) internal {
         uint256 openFundRedemptionId = depositReceipts[msg.sender].tokenIdRedeem;
         require(openFundRedemptionId != 0, "INVALID_REDEMPTION_ID");
 
@@ -198,6 +198,7 @@ contract SolvVault is Initializable, RockOnyxAccessControl, ReentrancyGuardUpgra
     function completeWithdrawal(uint256 shares) external nonReentrant {
         require(paused == false, "VAULT_PAUSED");
         require(shares > 0 , "INVALID_AMOUNT_WITHDRAW");
+
         require(withdrawals[msg.sender].shares >= shares, "INVALID_SHARES");
 
         redeem(shares);
@@ -214,6 +215,13 @@ contract SolvVault is Initializable, RockOnyxAccessControl, ReentrancyGuardUpgra
         uint256 balanceAfterWithdrawal = IERC20(vaultParams.asset).balanceOf(address(this));
 
         emit Withdrawn(msg.sender, vaultParams.asset, shares, withdrawAmount, balanceBeforeWithdrawal, balanceAfterWithdrawal);
+    }
+
+    /**
+     * @notice get total shares of vault
+     */
+    function totalShares() external view returns(uint256) {
+        return vaultState.totalShares;
     }
 
     /**
