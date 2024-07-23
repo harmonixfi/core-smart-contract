@@ -212,12 +212,11 @@ describe("Deposit to Solv", async () => {
         const tokenLatestFirst =
             await solvVaultContract.getLatestToken(tokenGOEFS);
 
-        console.log('Token latest first: ', tokenLatestFirst);
+        const balanceOf = await solvVaultContract.connect(admin).balanceOf(await admin.getAddress());
 
-        //shares = 1884364094154475514 when subscribe 2 * 1e8
-        const shares = 1884364094154475000;
+        console.log('balanceOf admin: ', balanceOf);
 
-        const hx = await solvVaultContract.initiateWithdrawal(BigInt(shares));
+        const hx = await solvVaultContract.initiateWithdrawal(balanceOf);
 
         expect(hx).to.not.equal(undefined || null);
     })
@@ -258,10 +257,11 @@ describe("Deposit to Solv", async () => {
 
         console.log('Token latest first: ', tokenLatestFirst);
 
-        //shares = 1884364094154475514 when subscribe 2 * 1e8
-        const shares = 1884364094154475000;
+        const balanceOf = await solvVaultContract.connect(admin).balanceOf(await admin.getAddress());
 
-        const hx = await solvVaultContract.initiateWithdrawal(BigInt(shares));
+        console.log('balanceOf admin: ', balanceOf);
+
+        const hx = await solvVaultContract.initiateWithdrawal(balanceOf);
 
         expect(hx).to.not.equal(undefined || null);
     })
