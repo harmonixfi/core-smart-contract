@@ -209,7 +209,6 @@ contract SolvVault is Initializable, RockOnyxAccessControl, ReentrancyGuardUpgra
 
         withdrawals[msg.sender].shares -= shares;
 
-        IERC20(vaultParams.asset).approve(address(this), withdrawAmount);
         IERC20(vaultParams.asset).transfer(msg.sender, withdrawAmount);
 
         uint256 balanceAfterWithdrawal = IERC20(vaultParams.asset).balanceOf(address(this));
