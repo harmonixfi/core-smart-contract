@@ -5,6 +5,7 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 import "../../interfaces/Solv/ISolv.sol";
 import "../../interfaces/Solv/INavOracal.sol";
 import "../../interfaces/Solv/SolvStruct.sol";
@@ -18,7 +19,7 @@ import "./structs/SolvStruct.sol";
 import "../../extensions/Utils.sol";
 import "hardhat/console.sol";
 
-contract SolvVault is RockOnyxAccessControl, ReentrancyGuardUpgradeable {
+contract SolvVault is Initializable, RockOnyxAccessControl, ReentrancyGuardUpgradeable {
     ISolv private SOLV;
     INavOracal private NavOracal;
     address private tokenGOEFS;
@@ -68,7 +69,7 @@ contract SolvVault is RockOnyxAccessControl, ReentrancyGuardUpgradeable {
         uint8 _decimal,
         uint256 _minimumSupply,
         uint256 _cap
-    ) public {
+    ) public initializer {
         SOLV = ISolv(_solvAddress);
         GOEFR = ITokenGOEFR(_tokenGOEFR);
         tokenGOEFS = _tokenGOEFS;
