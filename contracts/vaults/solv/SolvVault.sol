@@ -141,7 +141,7 @@ contract SolvVault is
             shares) / depositReceipt.shares);
         depositReceipt.shares -= shares;
         withdrawals[msg.sender].shares = shares;
-
+        
         requestRedeem(shares);
 
         emit RequestFunds(msg.sender, vaultParams.asset, shares);
@@ -154,8 +154,7 @@ contract SolvVault is
         uint256 openFundShareId = depositReceipts[msg.sender].tokenIdSubscribe;
         uint256 openFundRedemptionId = depositReceipts[msg.sender]
             .tokenIdRedeem;
-        vaultState.totalShares -= shares;
-
+        
         IERC721Enumerable(tokenGOEFS).approve(address(SOLV), openFundShareId);
 
         SOLV.requestRedeem(
@@ -230,6 +229,7 @@ contract SolvVault is
         
         uint256 withdrawAmount = balanceAfterWithdrawal - balanceBeforeWithdrawal;
         withdrawals[msg.sender].shares -= shares;
+        vaultState.totalShares -= shares;
 
         TransferHelper.safeTransfer(
             vaultParams.asset,
@@ -329,6 +329,10 @@ contract SolvVault is
      */
     function getUserWithdrawlShares() external view returns (uint256) {
         return withdrawals[msg.sender].shares;
+    }
+
+    function getDepositReceipt() external view returns (DepositReceipt memory) {
+        return (depositReceipts[msg.sender]);
     }
 
     function emergencyShutdown(
