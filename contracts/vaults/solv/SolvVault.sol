@@ -4,6 +4,7 @@ pragma solidity ^0.8.19;
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "../../interfaces/Solv/ISolv.sol";
 import "../../interfaces/Solv/INavOracal.sol";
 import "../../interfaces/Solv/SolvStruct.sol";
@@ -54,8 +55,8 @@ contract SolvVault is RockOnyxAccessControl, ReentrancyGuardUpgradeable {
         address currency
     );
 
-    event requestWithdrawal(address user, address asset, uint256 shares);
-    event WithDrawal(address user, address asset, uint256 shares, uint256 amount, uint256 balanceBeforeWithdrawal, uint256 balanceAfterWithdrawal);
+    event RequestFunds(address user, address asset, uint256 shares);
+    event Withdrawn(address user, address asset, uint256 shares, uint256 amount, uint256 balanceBeforeWithdrawal, uint256 balanceAfterWithdrawal);
 
     function initialize(
         address _admin,
@@ -87,7 +88,7 @@ contract SolvVault is RockOnyxAccessControl, ReentrancyGuardUpgradeable {
     function deposit(uint256 _amount) external nonReentrant {
         require(paused == false, "VAULT_PAUSED");
         require(_amount >= vaultParams.minimumSupply, "MIN_AMOUNT");
-        require(this.totalValueLock() + _amount <= vaultParams.cap, "EXCEED_CAP");
+        require(this.totalValueLocked() + _amount <= vaultParams.cap, "EXCEED_CAP");
 
         TransferHelper.safeTransferFrom(vaultParams.asset, msg.sender, address(this), _amount);
         TransferHelper.safeApprove(vaultParams.asset, address(SOLV), _amount);
@@ -124,7 +125,7 @@ contract SolvVault is RockOnyxAccessControl, ReentrancyGuardUpgradeable {
 
         requestRedeem(shares);
         
-        emit requestWithdrawal(msg.sender, vaultParams.asset, shares);
+        emit RequestFunds(msg.sender, vaultParams.asset, shares);
     }
 
     /**
@@ -193,7 +194,7 @@ contract SolvVault is RockOnyxAccessControl, ReentrancyGuardUpgradeable {
     /**
      *@notice withdrawal to the address user, only have amountWithdrawal can call this method
      */
-    function withdrawal(uint256 shares) external nonReentrant {
+    function completeWithdrawal(uint256 shares) external nonReentrant {
         require(paused == false, "VAULT_PAUSED");
         require(shares > 0 , "INVALID_AMOUNT_WITHDRAW");
         require(withdrawals[msg.sender].shares >= shares, "INVALID_SHARES");
@@ -201,17 +202,17 @@ contract SolvVault is RockOnyxAccessControl, ReentrancyGuardUpgradeable {
         redeem(shares);
 
         uint256 balanceBeforeWithdrawal = IERC20(vaultParams.asset).balanceOf(address(this));
-        uint256 withdrawAmount = shares * this.getPricePerShares();
+        uint256 withdrawAmount = shares * this.pricePerShare();
         require(withdrawAmount / 1e18 <= balanceBeforeWithdrawal, "INSUFFICIENT_BALANCE");
 
         withdrawals[msg.sender].shares -= shares;
 
         IERC20(vaultParams.asset).approve(address(this), withdrawAmount);
-        IERC20(vaultParams.asset).transferFrom(address(this), msg.sender, withdrawAmount);
+        IERC20(vaultParams.asset).transfer(msg.sender, withdrawAmount);
 
         uint256 balanceAfterWithdrawal = IERC20(vaultParams.asset).balanceOf(address(this));
 
-        emit WithDrawal(msg.sender, vaultParams.asset, shares, withdrawAmount, balanceBeforeWithdrawal, balanceAfterWithdrawal);
+        emit Withdrawn(msg.sender, vaultParams.asset, shares, withdrawAmount, balanceBeforeWithdrawal, balanceAfterWithdrawal);
     }
 
     /**
@@ -226,11 +227,11 @@ contract SolvVault is RockOnyxAccessControl, ReentrancyGuardUpgradeable {
     /**
      * @notice get total value locked vault => devide 1e26 = value real
      */
-    function totalValueLock() external returns (uint256) {
-        return (this.getPricePerShares() * vaultState.totalShares);
+    function totalValueLocked() external returns (uint256) {
+        return (this.pricePerShare() * vaultState.totalShares);
     }
 
-    function getPricePerShares() external returns (uint256) {
+    function pricePerShare() external returns (uint256) {
         address navOracalAddress = getNavOracleAddress(poolId);
         //init nav oracal
         NavOracal = INavOracal(navOracalAddress);
