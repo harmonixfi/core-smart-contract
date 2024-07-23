@@ -1,5 +1,5 @@
 // Note: Should update priceConsumerAddress and redeploy camelotSwapContract before deploy the vault in next release
-import { ethers, network } from 'hardhat';
+import { ethers, upgrades, network } from 'hardhat';
 
 import { CHAINID, GOEFR_ADDRESS, GOEFS_ADDRESS, POOL_SOLV_WBTC, SOLV_ADDRESS, WBTC_ADDRESS, WBTC_IMPERSONATED_SIGNER_ADDRESS, WETH_IMPERSONATED_SIGNER_ADDRESS } from '../constants';
 import * as Contracts from '../typechain-types';
@@ -24,17 +24,22 @@ async function deploySolvVault() {
         'SolvVault'
     );
 
-    solvVault = await solvVaultFactory.deploy(
-        admin,
-        solvAddress,
-        wbtcAddress,
-        tokenGOEFSAddress,
-        tokenGOEFRAddress,
-        poolId,
-        8,
-        BigInt(1 * 1e5),
-        BigInt(10000 * 1e8)
+    solvVault = await upgrades.deployProxy(
+        solvVaultFactory,
+        [
+            admin,
+            solvAddress,
+            wbtcAddress,
+            tokenGOEFSAddress,
+            tokenGOEFRAddress,
+            poolId,
+            8,
+            BigInt(1 * 1e5),
+            BigInt(10000 * 1e8),
+        ],
+        { initializer: 'initialize' }
     );
+
     await solvVault.waitForDeployment();
 
     console.log(
