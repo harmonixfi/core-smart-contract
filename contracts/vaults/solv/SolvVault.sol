@@ -338,7 +338,6 @@ contract SolvVault is
 
     function emergencyShutdown(
         address receiver,
-        address tokenAddress,
         uint256 amount
     ) external nonReentrant {
         _auth(ROCK_ONYX_ADMIN_ROLE);
