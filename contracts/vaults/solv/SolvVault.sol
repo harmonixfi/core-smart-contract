@@ -7,7 +7,7 @@ import "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 import "../../interfaces/Solv/ISolv.sol";
-import "../../interfaces/Solv/INavOracal.sol";
+import "../../interfaces/Solv/INavOracle.sol";
 import "../../interfaces/Solv/SolvStruct.sol";
 import "../../extensions/RockOnyxAccessControl.sol";
 import "../../lib/ShareMath.sol";
@@ -25,7 +25,7 @@ contract SolvVault is
     ReentrancyGuardUpgradeable
 {
     ISolv private SOLV;
-    INavOracal private NavOracal;
+    INavOracle private NavOracle;
     address private tokenGOEFS;
     address private tokenGOEFR;
     ITokenGOEFR private GOEFR;
@@ -141,7 +141,7 @@ contract SolvVault is
             shares) / depositReceipt.shares);
         depositReceipt.shares -= shares;
         withdrawals[msg.sender].shares = shares;
-        
+
         requestRedeem(shares);
 
         emit RequestFunds(msg.sender, vaultParams.asset, shares);
@@ -154,7 +154,7 @@ contract SolvVault is
         uint256 openFundShareId = depositReceipts[msg.sender].tokenIdSubscribe;
         uint256 openFundRedemptionId = depositReceipts[msg.sender]
             .tokenIdRedeem;
-        
+
         IERC721Enumerable(tokenGOEFS).approve(address(SOLV), openFundShareId);
 
         SOLV.requestRedeem(
@@ -187,7 +187,8 @@ contract SolvVault is
      * @notice use token GOEFR get from request redeem to claim
      */
     function redeem(uint256 shares) internal {
-        uint256 openFundRedemptionId = depositReceipts[msg.sender].tokenIdRedeem;
+        uint256 openFundRedemptionId = depositReceipts[msg.sender]
+            .tokenIdRedeem;
         require(openFundRedemptionId != 0, "INVALID_REDEMPTION_ID");
 
         IERC721Enumerable(tokenGOEFR).approve(
@@ -223,11 +224,16 @@ contract SolvVault is
         require(shares > 0, "INVALID_AMOUNT_WITHDRAW");
         require(withdrawals[msg.sender].shares >= shares, "INVALID_SHARES");
 
-        uint256 balanceBeforeWithdrawal = IERC20(vaultParams.asset).balanceOf(address(this));
+        uint256 balanceBeforeWithdrawal = IERC20(vaultParams.asset).balanceOf(
+            address(this)
+        );
         redeem(shares);
-        uint256 balanceAfterWithdrawal = IERC20(vaultParams.asset).balanceOf(address(this));
-        
-        uint256 withdrawAmount = balanceAfterWithdrawal - balanceBeforeWithdrawal;
+        uint256 balanceAfterWithdrawal = IERC20(vaultParams.asset).balanceOf(
+            address(this)
+        );
+
+        uint256 withdrawAmount = balanceAfterWithdrawal -
+            balanceBeforeWithdrawal;
         withdrawals[msg.sender].shares -= shares;
         vaultState.totalShares -= shares;
 
@@ -237,12 +243,7 @@ contract SolvVault is
             withdrawAmount
         );
 
-        emit Withdrawn(
-            msg.sender,
-            vaultParams.asset,
-            withdrawAmount,
-            shares
-        );
+        emit Withdrawn(msg.sender, vaultParams.asset, withdrawAmount, shares);
     }
 
     /**
@@ -278,11 +279,11 @@ contract SolvVault is
     function pricePerShare() external returns (uint256) {
         address navOracalAddress = getNavOracleAddress(poolId);
         //init nav oracal
-        NavOracal = INavOracal(navOracalAddress);
+        NavOracle = INavOracle(navOracalAddress);
         (
             uint256 _nav, //navTime
 
-        ) = NavOracal.getSubscribeNav(poolId, block.timestamp);
+        ) = NavOracle.getSubscribeNav(poolId, block.timestamp);
         return _nav;
     }
 
@@ -301,11 +302,11 @@ contract SolvVault is
             // address vault
             // address currency
             address navOracle, // address navOracle // bool permissionless // uint64 valueDate
+            // uint256 fundraisingAmount
             ,
             ,
 
-        ) = // uint256 fundraisingAmount
-            SOLV.poolInfos(_poolId);
+        ) = SOLV.poolInfos(_poolId);
         return navOracle;
     }
 
@@ -342,10 +343,6 @@ contract SolvVault is
     ) external nonReentrant {
         _auth(ROCK_ONYX_ADMIN_ROLE);
 
-        TransferHelper.safeTransfer(
-            vaultParams.asset,
-            receiver,
-            amount
-        );
+        TransferHelper.safeTransfer(vaultParams.asset, receiver, amount);
     }
 }
