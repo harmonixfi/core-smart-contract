@@ -5,5 +5,5 @@ interface INavOracle {
     function getSubscribeNav(
         bytes32 _poolId,
         uint256 _time
-    ) external returns (uint256 _nav, uint256 _navTime);
+    ) external view returns (uint256 _nav, uint256 _navTime);
 }

@@ -22,6 +22,7 @@ interface ISolv {
         bytes32 _poolId
     )
         external
+        view
         returns (
             PoolSFTInfo memory poolSFTInfo,
             PoolFeeInfo memory poolFeeInfo,

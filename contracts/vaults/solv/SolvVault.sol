@@ -272,22 +272,22 @@ contract SolvVault is
     /**
      * @notice get total value locked vault => devide 1e26 = value real
      */
-    function totalValueLocked() external returns (uint256) {
+    function totalValueLocked() external view returns (uint256) {
         return (this.pricePerShare() * vaultState.totalShares);
     }
 
-    function pricePerShare() external returns (uint256) {
+    function pricePerShare() external view returns (uint256) {
         address navOracalAddress = getNavOracleAddress(poolId);
-        //init nav oracal
-        NavOracle = INavOracle(navOracalAddress);
-        (
-            uint256 _nav, //navTime
-
-        ) = NavOracle.getSubscribeNav(poolId, block.timestamp);
+        (uint256 _nav, ) = INavOracle(navOracalAddress).getSubscribeNav(
+            poolId,
+            block.timestamp
+        );
         return _nav;
     }
 
-    function getNavOracleAddress(bytes32 _poolId) internal returns (address) {
+    function getNavOracleAddress(
+        bytes32 _poolId
+    ) internal view returns (address) {
         (
             ,
             ,
@@ -302,11 +302,11 @@ contract SolvVault is
             // address vault
             // address currency
             address navOracle, // address navOracle // bool permissionless // uint64 valueDate
-            // uint256 fundraisingAmount
             ,
             ,
 
-        ) = SOLV.poolInfos(_poolId);
+        ) = // uint256 fundraisingAmount
+            SOLV.poolInfos(_poolId);
         return navOracle;
     }
 

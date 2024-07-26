@@ -15,7 +15,7 @@ const chainId: CHAINID = network.config.chainId ?? 0;
 console.log("chainId ", chainId);
 
 const admin = "0x75bE1a23160B1b930D4231257A83e1ac317153c8";
-
+const UPGRADEABLE_PROXY = "0x9d95527A298c68526Ad5227fe241B75329D3b91F";
 const wbtcAddress = WBTC_ADDRESS[chainId] || "";
 const tokenGOEFSAddress = GOEFS_ADDRESS[chainId] || "";
 const tokenGOEFRAddress = GOEFR_ADDRESS[chainId] || "";
@@ -44,9 +44,32 @@ async function deploySolvVault() {
 
   await solvVault.waitForDeployment();
 
+
+
   console.log(
     "deploy solvVault successfully: %s",
     await solvVault.getAddress()
+  );
+}
+
+async function upgradeProxy() {
+  const upgradeContract = await ethers.getContractFactory(
+    "SolvVault"
+  );
+  console.log("Upgrading V1Contract...");
+  let upgrade = await upgrades.upgradeProxy(
+    UPGRADEABLE_PROXY,
+    upgradeContract
+  );
+  console.log("V1 Upgraded to V2");
+  console.log("V2 Contract Deployed To:", await upgrade.getAddress());
+
+  // Print the implementation address
+  const implementationAddress =
+    await upgrades.erc1967.getImplementationAddress(UPGRADEABLE_PROXY);
+  console.log(
+    "SolvVault implementation address: %s",
+    implementationAddress
   );
 }
 
@@ -58,8 +81,9 @@ async function main() {
     await deployer.getAddress()
   );
 
+  await upgradeProxy();
   // MAINNET
-  await deploySolvVault();
+  // await deploySolvVault();
 }
 
 main()
