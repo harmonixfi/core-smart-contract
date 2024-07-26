@@ -6,16 +6,13 @@ import {
     GOEFS_ADDRESS,
     SOLV_ADDRESS,
     WBTC_ADDRESS,
-    WBTC_IMPERSONATED_SIGNER_ADDRESS,
-    WETH_ADDRESS,
-    WETH_IMPERSONATED_SIGNER_ADDRESS
+    WBTC_IMPERSONATED_SIGNER_ADDRESS
 } from "../../constants";
 import { BigNumberish, Signer } from 'ethers';
 import { expect } from "chai";
 const hre = require('hardhat');
 const chainId: CHAINID = network.config.chainId;
 const poolId = "0x3b2232fb5309e89e5ee6e2ca6066bcc28ee365045e9a565040bf8c846b87477e";
-const { PRIVATE_KEY } = process.env;
 
 console.log("chainId: ", chainId);
 let admin: Signer;
