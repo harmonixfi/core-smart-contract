@@ -2,14 +2,14 @@ import { ethers, network } from "hardhat";
 import {
   CHAINID,
   AddressZero,
-  KYBER_SWAP_AGGREGATOR_ADDRESS,
+  KYBER_SWAP_ROUTER_ADDRESS,
   PRICE_CONSUMER_ADDRESS,
 } from "../../constants";
 
 const chainId: CHAINID = network.config.chainId ?? 0;
 console.log("chainId ", chainId);
 
-const swapRouterAddress = KYBER_SWAP_AGGREGATOR_ADDRESS[chainId] || AddressZero;
+const swapRouterAddress = KYBER_SWAP_ROUTER_ADDRESS[chainId] || AddressZero;
 const priceConsumerAddress = PRICE_CONSUMER_ADDRESS[chainId] || AddressZero;
 
 import * as Contracts from "../../typechain-types";

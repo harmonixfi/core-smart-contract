@@ -6,7 +6,7 @@ import {
   CHAINID,
   WETH_ADDRESS,
   USDC_ADDRESS,
-  KYBER_SWAP_AGGREGATOR_ADDRESS,
+  KYBER_SWAP_ROUTER_ADDRESS,
   ETH_PRICE_FEED_ADDRESS,
   USDT_IMPERSONATED_SIGNER_ADDRESS,
   USDT_ADDRESS,
@@ -57,7 +57,7 @@ describe("Kyber swap aggregator test", function () {
   const usdtAddress = USDT_ADDRESS[chainId] || '';
   const daiAddress = DAI_ADDRESS[chainId] || '';
   const wethAddress = WETH_ADDRESS[chainId] || '';
-  const kyberSwapAggregatorAddress = KYBER_SWAP_AGGREGATOR_ADDRESS[chainId] || '';
+  const kyberSwapAggregatorAddress = KYBER_SWAP_ROUTER_ADDRESS[chainId] || '';
   const ethPriceFeed = ETH_PRICE_FEED_ADDRESS[chainId];
   const usdtImpersonatedSigner = USDT_IMPERSONATED_SIGNER_ADDRESS[chainId] || "";
   const daiImpersonatedSigner = DAI_IMPERSONATED_SIGNER_ADDRESS[chainId] || "";

@@ -9,7 +9,7 @@ import {
   USDC_ADDRESS,
   USDT_ADDRESS,
   DAI_ADDRESS,
-  KYBER_SWAP_AGGREGATOR_ADDRESS,
+  KYBER_SWAP_ROUTER_ADDRESS,
   AEVO_ADDRESS,
   AEVO_CONNECTOR_ADDRESS,
   USDC_IMPERSONATED_SIGNER_ADDRESS,
@@ -30,11 +30,11 @@ import { BigNumberish, Signer } from "ethers";
 const chainId: CHAINID = network.config.chainId;
 console.log("chainId ", chainId);
 let aevoRecipientAddress: string;
-
+let UPGRADEABLE_PROXY: string;
 const PRECISION = 2 * 1e6;
 
 describe("KelpDaRestakingDeltaNeutralVault", function () {
-  this.timeout(120000);
+  this.timeout(1200000);
 
   let admin: Signer, user1: Signer, user2: Signer, user3: Signer, user4: Signer;
 
@@ -54,7 +54,7 @@ describe("KelpDaRestakingDeltaNeutralVault", function () {
   const daiAddress = DAI_ADDRESS[chainId] || "";
   const wethAddress = WETH_ADDRESS[chainId] || "";
   const rsEthAddress = RSETH_ADDRESS[chainId] || "";
-  const swapRouterAddress = KYBER_SWAP_AGGREGATOR_ADDRESS[chainId] || "";
+  const swapRouterAddress = KYBER_SWAP_ROUTER_ADDRESS[chainId] || "";
   const aevoAddress = AEVO_ADDRESS[chainId] || "";
   const aevoConnectorAddress = AEVO_CONNECTOR_ADDRESS[chainId] || "";
   const ethPriceFeed = ETH_PRICE_FEED_ADDRESS[chainId] || "";
@@ -133,14 +133,10 @@ describe("KelpDaRestakingDeltaNeutralVault", function () {
 
     await kelpRestakingDNVault.waitForDeployment();
 
-    const initiateV2Tx = await kelpRestakingDNVault
-      .connect(admin)
-      .initializeV2(await swapAggregatorContract.getAddress());
-    await initiateV2Tx.wait();
-
+    UPGRADEABLE_PROXY = await kelpRestakingDNVault.getAddress();
     console.log(
       "deploy kelpRestakingDNVault proxy successfully: %s",
-      await kelpRestakingDNVault.getAddress()
+      UPGRADEABLE_PROXY
     );
   }
 
@@ -174,7 +170,7 @@ describe("KelpDaRestakingDeltaNeutralVault", function () {
     return response.data.data.data;
   }
 
-  beforeEach(async function () {
+  before(async function () {
     [admin, user1, user2, user3, user4] = await ethers.getSigners();
     aevoRecipientAddress = await user4.getAddress();
     usdc = await ethers.getContractAt("IERC20", usdcAddress);
@@ -182,9 +178,9 @@ describe("KelpDaRestakingDeltaNeutralVault", function () {
     dai = await ethers.getContractAt("IERC20", daiAddress);
     weth = await ethers.getContractAt("IERC20", wethAddress);
 
-    // await deployPriceConsumerContract();
-    // await deploySwapAggregatorContract();
-    // await deployKelpRestakingDeltaNeutralVault();
+    await deployPriceConsumerContract();
+    await deploySwapAggregatorContract();
+    await deployKelpRestakingDeltaNeutralVault();
   });
 
   async function deposit(
@@ -231,7 +227,7 @@ describe("KelpDaRestakingDeltaNeutralVault", function () {
     return totalValueLocked;
   }
 
-  it.skip("seed data", async function () {
+  it("seed data", async function () {
     const usdcSigner = await ethers.getImpersonatedSigner(
       usdcImpersonatedSigner
     );
@@ -242,12 +238,12 @@ describe("KelpDaRestakingDeltaNeutralVault", function () {
 
     await transferForUser(usdc, usdcSigner, user1, 100000 * 1e6);
     await transferForUser(usdc, usdcSigner, user2, 100000 * 1e6);
-    await transferForUser(usdc, usdcSigner, user3, 100000 * 1e6);
-    await transferForUser(usdc, usdcSigner, user4, 100000 * 1e6);
     await transferForUser(usdc, usdcSigner, admin, 100000 * 1e6);
-
+    console.log("usdc sent");
     await transferForUser(usdt, usdtSigner, user2, 100000 * 1e6);
+    console.log("usdt sent");
     await transferForUser(dai, daiSigner, user2, BigInt(100000 * 1e18));
+    console.log("dai sent");
   });
 
   it.skip("user deposit -> withdraw", async function () {
@@ -818,38 +814,36 @@ describe("KelpDaRestakingDeltaNeutralVault", function () {
   });
 
   it("migration new restaking delta neutral vault", async function () {
-    console.log("-------------migration new restaking delta neutral vault---------------");
-
-    const contractAdmin = await ethers.getImpersonatedSigner(
-      "0x0d4eef21D898883a6bd1aE518B60fEf7A951ce4D"
+    console.log(
+      "-------------migration new restaking delta neutral vault---------------"
     );
-    const proxyContractAddress = "0x4a10C31b642866d3A3Df2268cEcD2c5B14600523";
 
     const kelpRestakingDeltaNeutralVault = await ethers.getContractFactory(
       "KelpRestakingDeltaNeutralVault"
     );
     const newContract = await upgrades.upgradeProxy(
-      proxyContractAddress,
+      await kelpRestakingDNVault.getAddress(),
       kelpRestakingDeltaNeutralVault
     );
     console.log(
       "KelpRestakingDeltaNeutralVault upgraded to V2 at:",
-      newContract.address
+      await newContract.getAddress()
     );
 
-    // const initiateV2Tx = await newContract
-    //   .connect(contractAdmin)
-    //   .initializeV2(await swapAggregatorContract.getAddress());
+    // Print the implementation address
+    const implementationAddress =
+      await upgrades.erc1967.getImplementationAddress(UPGRADEABLE_PROXY);
+    console.log(
+      "KelpRestakingDNVault implementation address: %s",
+      implementationAddress
+    );
 
-    // const amount = 50 * 1e6;
-    // await usdt.connect(user2).approve(await newContract.getAddress(), amount);
+    const initiateV2Tx = await newContract
+      .connect(admin)
+      .initializeV2(await swapAggregatorContract.getAddress());
 
-    // const quote = await getExactInputQuote(
-    //   await usdt.getAddress(),
-    //   usdcAddress,
-    //   amount
-    // );
-    // await newContract.connect(user2).deposit(amount, usdt, quote);
-    // console.log("new contract deposited:");
+      await deposit(user2, 50 * 1e6, usdt);
+
+    let totalValueLock = await logAndReturnTotalValueLock();
   });
 });

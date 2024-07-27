@@ -13,10 +13,11 @@ import {
   KELP_DEPOSIT_REF_ID,
   UNI_SWAP_ADDRESS,
   AddressZero,
-  KYBER_SWAP_AGGREGATOR_ADDRESS,
+  KYBER_SWAP_ROUTER_ADDRESS,
 } from "../../constants";
+import { Signer } from "ethers";
 
-const chainId: CHAINID = network.config.chainId ?? 0;
+const chainId: CHAINID = network.config.chainId ?? 42161;
 console.log("chainId ", chainId);
 
 const usdcAddress = USDC_ADDRESS[chainId] || AddressZero;
@@ -30,14 +31,12 @@ const aevoConnectorAddress = AEVO_CONNECTOR_ADDRESS[chainId] || AddressZero;
 const kelpDepositAddress = KELP_DEPOSIT_ADDRESS[chainId] || AddressZero;
 const kelpDepositRefId = KELP_DEPOSIT_REF_ID[chainId] || AddressZero;
 const zircuitDepositAddress = ZIRCUIT_DEPOSIT_ADDRESS[chainId] || AddressZero;
+const swapRouterAddress = KYBER_SWAP_ROUTER_ADDRESS[chainId] || AddressZero;
 
-// const swapRouterAddress = KYBER_SWAP_AGGREGATOR_ADDRESS[chainId] || AddressZero;
-
-let contractAdmin;
-
-let UPGRADEABLE_PROXY;
-let aevoRecipientAddress;
-
+let contractAdmin: string;
+let UPGRADEABLE_PROXY: string;
+let aevoRecipientAddress: string;
+let deployer: Signer;
 if (chainId == CHAINID.ARBITRUM_MAINNET) {
   console.log("Setting up params for Arbitrum network");
   // mainnet
@@ -53,10 +52,22 @@ if (chainId == CHAINID.ARBITRUM_MAINNET) {
   aevoRecipientAddress = "0x9d95DC7c1Aa6F6CC784edD5690C003692470d616";
 }
 
-
 // remove after finish test
-UPGRADEABLE_PROXY = "0xc297A1E85Eb13585E37670470d38f1C76730C4D8";
+UPGRADEABLE_PROXY = "0xCFbFc51A3da26eBab8E9DE77d0f33a06e9C4bc0F";
 const kyberswapRouterAddress = "0x09873cAeaD90d60cD84C9543e0d5CD772C44cdF1";
+
+async function updateSwapAggregatorAddress() {
+  console.log("UPGRADEABLE_PROXY %s", UPGRADEABLE_PROXY);
+  const proxy = await ethers.getContractAt("KelpRestakingDeltaNeutralVault", UPGRADEABLE_PROXY);
+
+  const initiateV2Tx = await proxy
+    .connect(deployer)
+    .initializeV2(kyberswapRouterAddress, {
+      gasLimit: 650000,
+    });
+
+  await initiateV2Tx.wait();
+}
 
 async function deployKelpRestakingDeltaNeutralVault() {
   const kelpRestakingDeltaNeutralVault = await ethers.getContractFactory(
@@ -66,7 +77,7 @@ async function deployKelpRestakingDeltaNeutralVault() {
   const kelpRestakingDNVault = await upgrades.deployProxy(
     kelpRestakingDeltaNeutralVault,
     [
-      contractAdmin,
+      await deployer.getAddress(),
       usdcAddress,
       6,
       BigInt(5 * 1e6),
@@ -131,21 +142,8 @@ async function upgradeProxy() {
   );
 }
 
-async function updateSwapAggregatorAddress() {
-  console.log("UPGRADEABLE_PROXY %s", UPGRADEABLE_PROXY);
-  const proxy = await ethers.getContractAt("KelpRestakingDeltaNeutralVault", UPGRADEABLE_PROXY);
-
-  const initiateV2Tx = await proxy
-    .connect(contractAdmin)
-    .initializeV2(kyberswapRouterAddress, {
-      gasLimit: 650000,
-    });
-
-  await initiateV2Tx.wait();
-}
-
 async function main() {
-  const [deployer] = await ethers.getSigners();
+  [deployer] = await ethers.getSigners();
 
   console.log(
     "Deploying contracts with the account:",
