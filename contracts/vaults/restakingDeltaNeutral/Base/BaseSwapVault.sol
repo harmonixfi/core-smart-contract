@@ -1,15 +1,14 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.19;
 
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "../../../extensions/Uniswap/Uniswap.sol";
+import "../../../interfaces/ISwapAggregator.sol";
 import "hardhat/console.sol";
 
 abstract contract BaseSwapVault {
     UniSwap internal swapProxy;
     mapping(address => mapping(address => uint24)) internal fees;
-
+    
     function baseSwapVault_Initialize(
         address _swapAddress,
         address[] memory _token0s,
@@ -28,5 +27,13 @@ abstract contract BaseSwapVault {
         if(fee == 0) fee = fees[token1][token0];
         
         return fee;
+    }
+
+    function updateSwapAggregator(address _swapProxy) internal {
+        swapProxy = UniSwap(_swapProxy);
+    }
+
+    function getSwapAggregator() internal view returns(ISwapAggregator){
+        return ISwapAggregator(address(swapProxy));
     }
 }

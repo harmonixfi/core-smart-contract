@@ -2,10 +2,9 @@
 pragma solidity ^0.8.19;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
+import "../../../../extensions/TransferHelper.sol";
 import "../../../../extensions/RockOnyxAccessControl.sol";
-import "../../../../extensions/Uniswap/Uniswap.sol";
 import "./../../Base/BaseSwapVault.sol";
 import "../../structs/RestakingDeltaNeutralStruct.sol";
 import "hardhat/console.sol";
@@ -51,48 +50,46 @@ abstract contract BaseRestakingStrategy is BaseSwapVault, RockOnyxAccessControl,
         restakingState.totalBalance += amount;
     }
 
-    function openPosition(uint256 ethAmount) external nonReentrant {
+    function openPosition(uint256 usdcAmount, bytes calldata swapCallData) external nonReentrant {
         _auth(ROCK_ONYX_OPTIONS_TRADER_ROLE);
-        require(restakingState.unAllocatedBalance > 0, "INSUFICIENT_BALANCE");
+        require(restakingState.unAllocatedBalance > usdcAmount, "INSUFICIENT_BALANCE");
 
-        usdcToken.approve(address(swapProxy), restakingState.unAllocatedBalance);
-        uint256 usedUsdAmount = swapProxy.swapToWithOutput(
+        TransferHelper.safeApprove(address(usdcToken), address(getSwapAggregator()), usdcAmount);
+        uint256 ethAmount = getSwapAggregator().swapTo(
             address(this),
             address(usdcToken),
-            ethAmount,
+            usdcAmount,
             address(ethToken), 
-            getFee(address(usdcToken), address(ethToken))
+            swapCallData
         );
 
-        restakingState.unAllocatedBalance -= usedUsdAmount;
-        depositToRestakingProxy(ethAmount);
+        restakingState.unAllocatedBalance -= usdcAmount;
 
-        emit PositionOpened(usedUsdAmount, ethAmount);
+        emit PositionOpened(usdcAmount, ethAmount);
     }
 
-    function closePosition(uint256 ethAmount) external nonReentrant {
+    function closePosition(uint256 ethAmount, bytes calldata swapCallData) external nonReentrant {
         _auth(ROCK_ONYX_OPTIONS_TRADER_ROLE);
 
-        withdrawFromRestakingProxy(ethAmount);
-        ethToken.approve(address(swapProxy), ethToken.balanceOf(address(this)));
-        uint256 actualUsdcAmount = swapProxy.swapTo(
+        TransferHelper.safeApprove(address(ethToken), address(getSwapAggregator()), ethAmount);
+        uint256 usdcAmount = getSwapAggregator().swapTo(
             address(this),
             address(ethToken),
-            ethToken.balanceOf(address(this)),
+            ethAmount,
             address(usdcToken),
-            getFee(address(usdcToken), address(ethToken))
+            swapCallData
         );
 
-        restakingState.unAllocatedBalance += actualUsdcAmount;
-        emit PositionClosed(ethAmount, actualUsdcAmount);
+        restakingState.unAllocatedBalance += usdcAmount;
+        emit PositionClosed(ethAmount, usdcAmount);
     }
 
-    function depositToRestakingProxy(uint256 ethAmount) internal virtual nonReentrant {}
+    function depositToRestakingProxy(uint256 ethAmount, bytes calldata swapCallData) external virtual nonReentrant {}
     
-    function withdrawFromRestakingProxy(uint256 ethAmount) internal virtual nonReentrant {}
+    function withdrawFromRestakingProxy(uint256 ethAmount, bytes calldata swapCallData) external virtual nonReentrant {}
 
     function syncRestakingBalance() internal virtual{
-        uint256 ethAmount = restakingToken.balanceOf(address(this)) * swapProxy.getPriceOf(address(restakingToken), address(ethToken)) / 1e18;
+        uint256 ethAmount = ethToken.balanceOf(address(this)) + restakingToken.balanceOf(address(this)) * swapProxy.getPriceOf(address(restakingToken), address(ethToken)) / 1e18;
         restakingState.totalBalance = restakingState.unAllocatedBalance + ethAmount * swapProxy.getPriceOf(address(restakingToken), address(ethToken)) / 1e18;
     }
 

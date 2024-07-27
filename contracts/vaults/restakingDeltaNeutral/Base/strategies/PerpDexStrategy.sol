@@ -3,14 +3,13 @@ pragma solidity ^0.8.19;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
-import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import "../../../../extensions/TransferHelper.sol";
 import "../../../../interfaces/IPerpDexProxy.sol";
 import "../../../../extensions/RockOnyxAccessControl.sol";
 import "../../structs/RestakingDeltaNeutralStruct.sol";
 import "hardhat/console.sol";
 
 contract PerpDexStrategy is RockOnyxAccessControl, ReentrancyGuardUpgradeable {
-    using SafeERC20 for IERC20;
 
     address perpDexAsset;
     PerpDexState internal perpDexState;
@@ -46,8 +45,8 @@ contract PerpDexStrategy is RockOnyxAccessControl, ReentrancyGuardUpgradeable {
         bytes memory data = "";
         uint256 amount = perpDexState.unAllocatedBalance;
         perpDexState.unAllocatedBalance -= amount;
-        IERC20(perpDexAsset).approve(address(perpDexProxy), amount);
 
+        TransferHelper.safeApprove(perpDexAsset, address(perpDexProxy), amount);
         perpDexProxy.depositERC20To{value: msg.value}(
             l1Token,
             l2Token,
@@ -67,7 +66,7 @@ contract PerpDexStrategy is RockOnyxAccessControl, ReentrancyGuardUpgradeable {
         bytes memory data = "";
         uint256 amount = perpDexState.unAllocatedBalance;
         perpDexState.unAllocatedBalance -= amount;
-        IERC20(perpDexAsset).approve(address(perpDexProxy), amount);
+        TransferHelper.safeApprove(perpDexAsset, address(perpDexProxy), amount);
 
         perpDexProxy.depositToAppChain{value: msg.value}(
             perpDexReceiver,
@@ -87,7 +86,7 @@ contract PerpDexStrategy is RockOnyxAccessControl, ReentrancyGuardUpgradeable {
         
         uint256 amount = perpDexState.unAllocatedBalance;
         perpDexState.unAllocatedBalance -= amount;
-        IERC20(perpDexAsset).approve(address(perpDexProxy), amount);
+        TransferHelper.safeApprove(perpDexAsset, address(perpDexProxy), amount);
 
         perpDexProxy.depositRaw(perpDexReceiver, perpDexAsset, uint128(amount));
 
@@ -132,7 +131,7 @@ contract PerpDexStrategy is RockOnyxAccessControl, ReentrancyGuardUpgradeable {
         require(amount > 0, "INVALID_WD_AMOUNT");
         _auth(ROCK_ONYX_OPTIONS_TRADER_ROLE);
 
-        IERC20(perpDexAsset).safeTransferFrom(msg.sender, address(this), amount);
+        TransferHelper.safeTransferFrom(perpDexAsset, msg.sender, address(perpDexProxy), amount);
 
         perpDexState.unAllocatedBalance += amount;
         perpDexState.perpDexBalance = (amount <= perpDexState.perpDexBalance)

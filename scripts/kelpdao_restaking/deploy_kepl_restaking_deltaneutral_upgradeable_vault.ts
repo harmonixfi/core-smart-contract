@@ -39,7 +39,7 @@ if (chainId == CHAINID.ARBITRUM_MAINNET) {
   console.log("Setting up params for Arbitrum network");
   // mainnet
   contractAdmin = "0x0d4eef21D898883a6bd1aE518B60fEf7A951ce4D";
-  UPGRADEABLE_PROXY = "";
+  UPGRADEABLE_PROXY = "0x4a10C31b642866d3A3Df2268cEcD2c5B14600523";
   aevoRecipientAddress = "0x0F8C856907DfAFB96871AbE09a76586311632ef8";
 } else if (chainId == CHAINID.ETH_MAINNET) {
   console.log("Setting up params for Ether network");
@@ -126,8 +126,8 @@ async function main() {
     await deployer.getAddress()
   );
 
-  await deployKelpRestakingDeltaNeutralVault();
-  // await upgradeProxy();
+  // await deployKelpRestakingDeltaNeutralVault();
+  await upgradeProxy();
 }
 
 main()

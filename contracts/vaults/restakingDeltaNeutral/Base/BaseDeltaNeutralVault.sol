@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.19;
 
+import "../../../extensions/TransferHelper.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 import "../../../extensions/RockOnyxAccessControl.sol";
-import "../../../extensions/Uniswap/Uniswap.sol";
 import "../../../lib/ShareMath.sol";
 import "../Base/BaseSwapVault.sol";
 import "./../structs/RestakingDeltaNeutralStruct.sol";
@@ -61,6 +61,12 @@ abstract contract BaseDeltaNeutralVault is
         accessControl_Initialize();
     }
 
+    function initializeV2(address _swapAddress) external nonReentrant {
+        _auth(ROCK_ONYX_ADMIN_ROLE);
+
+       updateSwapAggregator(_swapAddress);
+    }
+
     function updateFee(
         address[] memory _token0s,
         address[] memory _token1s,
@@ -78,34 +84,22 @@ abstract contract BaseDeltaNeutralVault is
      * @notice Mints the vault shares for depositor
      * @param amount is the amount of `dasset` deposited
      */
-    function deposit(uint256 amount, address tokenIn, address transitToken) external nonReentrant {
-        require(paused == false, "VAULT_PAUSED");
+    function deposit(uint256 amount, address tokenIn, bytes calldata swapCallData) external nonReentrant {
+        require(!paused, "VAULT_PAUSED");
         uint256 assetDepositAmount = (tokenIn == vaultParams.asset) ? amount : 
-                            (tokenIn == transitToken) ? amount * swapProxy.getPriceOf(tokenIn, vaultParams.asset) / 10 ** (ERC20(tokenIn).decimals()) :
-                            (amount * swapProxy.getPriceOf(tokenIn, transitToken) * swapProxy.getPriceOf(transitToken, vaultParams.asset)) / 10 ** (ERC20(tokenIn).decimals() + (ERC20(transitToken).decimals()));
+                            amount * getSwapAggregator().getPriceOf(tokenIn, vaultParams.asset) / 10 ** ERC20(tokenIn).decimals();
         require(assetDepositAmount >= vaultParams.minimumSupply, "MIN_AMOUNT");
         require(_totalValueLocked() + assetDepositAmount <= vaultParams.cap, "EXCEED_CAP");
 
         TransferHelper.safeTransferFrom(tokenIn, msg.sender, address(this), amount);
         if(tokenIn != vaultParams.asset){
-            if(tokenIn != transitToken){
-                TransferHelper.safeApprove(tokenIn, address(swapProxy), amount);
-                amount = swapProxy.swapTo(
-                    address(this),
-                    address(tokenIn),
-                    amount,
-                    address(transitToken),
-                    getFee(address(tokenIn), address(transitToken))
-                );
-            }
-
-            TransferHelper.safeApprove(transitToken, address(swapProxy), amount);
-            amount = swapProxy.swapTo(
+            TransferHelper.safeApprove(tokenIn, address(getSwapAggregator()), amount);
+            amount = getSwapAggregator().swapTo(
                 address(this),
-                address(transitToken),
+                address(tokenIn),
                 amount,
                 address(vaultParams.asset),
-                getFee(address(transitToken), address(vaultParams.asset))
+                swapCallData
             );
         }
 
@@ -121,7 +115,6 @@ abstract contract BaseDeltaNeutralVault is
 
         // migration
         updateDepositArr(depositReceipts[msg.sender]);
-        // end migration
     }
 
     /**
@@ -129,6 +122,8 @@ abstract contract BaseDeltaNeutralVault is
      * @param shares is the number of shares to withdraw
      */
     function initiateWithdrawal(uint256 shares) external nonReentrant {
+        require(!paused, "VAULT_PAUSED");
+
         DepositReceipt storage depositReceipt = depositReceipts[msg.sender];
         require(depositReceipt.shares >= shares, "INVALID_SHARES");
         require(withdrawals[msg.sender].shares == 0, "INVALID_WD_STATE");
@@ -190,7 +185,9 @@ abstract contract BaseDeltaNeutralVault is
      * @param shares is the number of shares to withdraw
      */
     function completeWithdrawal(uint256 shares) external nonReentrant {
+        require(!paused, "VAULT_PAUSED");
         require(withdrawals[msg.sender].shares >= shares, "INVALID_SHARES");
+
         uint256 withdrawAmount = (shares * withdrawals[msg.sender].withdrawAmount) / withdrawals[msg.sender].shares;
         uint256 performanceFee = (shares * withdrawals[msg.sender].performanceFee) / withdrawals[msg.sender].shares;
         uint256 feeAmount = performanceFee + networkCost;
@@ -302,7 +299,7 @@ abstract contract BaseDeltaNeutralVault is
     /**
      * @notice get vault fees
      */
-    function getManagementFee() public view returns (uint256, uint256) {
+    function getManagementFee() external view returns (uint256, uint256) {
         return (_getManagementFee(block.timestamp), block.timestamp);
     }
 
@@ -341,7 +338,7 @@ abstract contract BaseDeltaNeutralVault is
     ) external nonReentrant {
         _auth(ROCK_ONYX_ADMIN_ROLE);
 
-        IERC20(tokenAddress).transfer(receiver, amount);
+        TransferHelper.safeTransfer(tokenAddress, receiver, amount);
     }
 
     // migration
