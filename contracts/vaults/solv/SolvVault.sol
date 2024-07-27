@@ -273,7 +273,7 @@ contract SolvVault is
      * @notice get total value locked vault => devide 1e26 = value real
      */
     function totalValueLocked() external view returns (uint256) {
-        return (this.pricePerShare() * vaultState.totalShares);
+        return (this.pricePerShare() * vaultState.totalShares) / 1e18;
     }
 
     function pricePerShare() external view returns (uint256) {
