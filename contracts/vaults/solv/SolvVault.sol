@@ -60,13 +60,13 @@ contract SolvVault is
         address currency
     );
 
-    event RequestFunds(address user, address asset, uint256 shares);
-    event Withdrawn(
-        address user,
-        address asset,
-        uint256 amount,
+    event RequestFunds(
+        address indexed account,
+        uint256 withdrawalAmount,
         uint256 shares
     );
+    event Withdrawn(address indexed account, uint256 amount, uint256 shares);
+
 
     function initialize(
         address _admin,
@@ -144,7 +144,7 @@ contract SolvVault is
 
         requestRedeem(shares);
 
-        emit RequestFunds(msg.sender, vaultParams.asset, shares);
+        emit RequestFunds(msg.sender, shares * _getPricePerShare(), shares);
     }
 
     /**
@@ -243,7 +243,7 @@ contract SolvVault is
             withdrawAmount
         );
 
-        emit Withdrawn(msg.sender, vaultParams.asset, withdrawAmount, shares);
+        emit Withdrawn(msg.sender, withdrawAmount, shares);
     }
 
     /**
@@ -276,13 +276,17 @@ contract SolvVault is
         return (this.pricePerShare() * vaultState.totalShares) / 1e18;
     }
 
-    function pricePerShare() external view returns (uint256) {
+    function _getPricePerShare() internal view returns (uint256) {
         address navOracalAddress = getNavOracleAddress(poolId);
         (uint256 _nav, ) = INavOracle(navOracalAddress).getSubscribeNav(
             poolId,
             block.timestamp
         );
         return _nav;
+    }
+
+    function pricePerShare() external view returns (uint256) {
+        return _getPricePerShare();
     }
 
     function getNavOracleAddress(
@@ -301,12 +305,11 @@ contract SolvVault is
             // SubscribeLimitInfo memory subscribeLimitInfo
             // address vault
             // address currency
-            address navOracle, // address navOracle // bool permissionless // uint64 valueDate
+            address navOracle, // address navOracle // bool permissionless // uint64 valueDate // uint256 fundraisingAmount
             ,
             ,
 
-        ) = // uint256 fundraisingAmount
-            SOLV.poolInfos(_poolId);
+        ) = SOLV.poolInfos(_poolId);
         return navOracle;
     }
 
