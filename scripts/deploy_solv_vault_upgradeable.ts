@@ -44,8 +44,6 @@ async function deploySolvVault() {
 
   await solvVault.waitForDeployment();
 
-
-
   console.log(
     "deploy solvVault successfully: %s",
     await solvVault.getAddress()

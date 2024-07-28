@@ -246,6 +246,18 @@ contract SolvVault is
         emit Withdrawn(msg.sender, withdrawAmount, shares);
     }
 
+    function updateMinimumSupply(uint256 _minimumSupply) external nonReentrant {
+        _auth(ROCK_ONYX_ADMIN_ROLE);
+        
+        vaultParams.minimumSupply = _minimumSupply;
+    }
+
+    function updateCapacity(uint256 _cap) external nonReentrant {
+        _auth(ROCK_ONYX_ADMIN_ROLE);
+
+        vaultParams.cap = _cap;
+    }
+
     /**
      * @notice get total shares of vault
      */
