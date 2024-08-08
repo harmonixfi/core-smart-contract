@@ -95,6 +95,10 @@ contract PerpDexStrategy is RockOnyxAccessControl, ReentrancyGuardUpgradeable {
         emit PerpDexVendorDeposited(amount);
     }
 
+    function depositHyperLiquid() external nonReentrant {
+        
+    }
+
     function syncPerpDexBalance(uint256 balance) internal {
         _auth(ROCK_ONYX_ADMIN_ROLE);
 

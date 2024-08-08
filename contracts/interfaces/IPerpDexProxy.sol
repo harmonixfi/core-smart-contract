@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.19;
 
+import "../vaults/pendleHegde/structs/PendleStruct.sol";
+
 interface IPerpDexProxy {
     function depositToAppChain(
         address receiver,
@@ -24,5 +26,9 @@ interface IPerpDexProxy {
         address recipient, 
         address tokenAddress, 
         uint128 rawAmount
+    ) external;
+
+    function batchedDepositWithPermit (
+        DepositWithPermit[] memory deposits
     ) external;
 }

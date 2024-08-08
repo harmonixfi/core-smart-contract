@@ -281,3 +281,7 @@ export const NETWORK_COST: { [key in CHAINID]?: string } = {
   [CHAINID.ARBITRUM_MAINNET]: "1",
   [CHAINID.BASE_MAINNET]: "1",
 };
+
+export const HYPER_LIQUID: { [key in CHAINID]?: string } = {
+    [CHAINID.ARBITRUM_MAINNET]: '0x2Df1c51E09aECF9cacB7bc98cB1742757f163dF7',
+};

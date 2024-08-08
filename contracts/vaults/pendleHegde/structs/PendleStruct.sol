@@ -23,3 +23,16 @@ struct DepositReceiptPendle {
     uint256 depositAmount;
     address ptToken;
 }
+
+struct DepositWithPermit {
+    address user;
+    uint64 usd;
+    uint64 deadline;
+    Signature signature;
+}
+
+struct Signature {
+    uint256 r;
+    uint256 s;
+    uint8 v;
+}

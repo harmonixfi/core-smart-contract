@@ -35,21 +35,37 @@ contract PendleHegdeVault is Initializable, PerpDexStrategy {
         initialPPS = _initialPPS;
         paused = false;
 
-        perpDex_Initialize(_perpDexAddress, _perpDexReceiver, _usdc, _perpDexConnector);
+        perpDex_Initialize(
+            _perpDexAddress,
+            _perpDexReceiver,
+            _usdc,
+            _perpDexConnector
+        );
 
         _grantRole(ROCK_ONYX_ADMIN_ROLE, _admin);
         _grantRole(ROCK_ONYX_OPTIONS_TRADER_ROLE, _admin);
     }
 
     /**
-     * @param _ptTokenAmount amount ptToken deposit == amount usdc
+     * @notice deposit to the Aevo
      */
-    function depositToPendleHegdeVault(uint256 _ptTokenAmount, address _ptToken) external nonReentrant {
+    function deposit(
+        address _token0Address,
+        uint256 _token0Amount,
+        address _token1Address,
+        uint256 _token1Amount
+    ) external nonReentrant {
         require(paused == false, "VAULT_PAUSED");
-        require(_ptTokenAmount > 0, "INVALID_AMOUNT_DEPOSIT");
-        TransferHelper.safeTransferFrom(vaultParams.asset, msg.sender, address(this), _ptTokenAmount);
-        depositReceipts[msg.sender].depositAmount += _ptTokenAmount;
-        depositReceipts[msg.sender].ptToken = _ptToken;
+        require(_token0Amount > 0, "INVALID_AMOUNT_DEPOSIT_TOKEN_0");
+        require(_token1Amount > 0, "INVALID_AMOUNT_DEPOSIT_TOKEN_1");
+        // TransferHelper.safeTransferFrom(
+        //     vaultParams.asset,
+        //     msg.sender,
+        //     address(this),
+        //     _ptTokenAmount
+        // );
+        // depositReceipts[msg.sender].depositAmount += _ptTokenAmount;
+        // depositReceipts[msg.sender].ptToken = _ptToken;
         this.depositToVendor(30000);
     }
 }
