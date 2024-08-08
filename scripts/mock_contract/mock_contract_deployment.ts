@@ -1,4 +1,4 @@
-import { ethers, upgrades, network } from "hardhat";
+const { ethers, network, upgrades } = require("hardhat");
 import { CHAINID } from "../../constants";
 
 const chainId: CHAINID = network.config.chainId ?? 0;
