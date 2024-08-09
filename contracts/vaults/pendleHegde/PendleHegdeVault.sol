@@ -12,6 +12,14 @@ contract PendleHegdeVault is Initializable, PerpDexStrategy {
     uint256 internal initialPPS;
     mapping(address => DepositReceiptPendle) internal depositReceipts;
 
+    /************************************************
+     *  EVENTS
+     ***********************************************/
+
+    event Deposit();
+
+    event Withdrawn();
+
     function initialize(
         address _admin,
         address _usdc,
