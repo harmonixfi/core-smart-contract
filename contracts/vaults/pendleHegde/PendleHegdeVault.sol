@@ -47,17 +47,20 @@ contract PendleHegdeVault is Initializable, PerpDexStrategy {
     }
 
     /**
-     * @notice deposit to the Aevo
+     * @param _ptAddress address of PT token
+     * @param _stcAddress address of stable coin(USDC)
+     * @param _ptAmount amount of PT token
+     * @param _stcAmount amount of stable coin(USDC)
      */
     function deposit(
-        address _token0Address,
-        uint256 _token0Amount,
-        address _token1Address,
-        uint256 _token1Amount
+        address _ptAddress,
+        address _stcAddress,
+        uint256 _ptAmount,
+        uint256 _stcAmount
     ) external nonReentrant {
         require(paused == false, "VAULT_PAUSED");
-        require(_token0Amount > 0, "INVALID_AMOUNT_DEPOSIT_TOKEN_0");
-        require(_token1Amount > 0, "INVALID_AMOUNT_DEPOSIT_TOKEN_1");
+        require(_ptAmount > 0, "INVALID_AMOUNT_DEPOSIT_TOKEN_0");
+        require(_stcAmount > 0, "INVALID_AMOUNT_DEPOSIT_TOKEN_1");
         // TransferHelper.safeTransferFrom(
         //     vaultParams.asset,
         //     msg.sender,
@@ -68,4 +71,21 @@ contract PendleHegdeVault is Initializable, PerpDexStrategy {
         // depositReceipts[msg.sender].ptToken = _ptToken;
         this.depositToVendor(30000);
     }
+
+    function estimateUsdcAmountToDeposit(
+        address _ptAddress,
+        uint256 _amount
+    ) external nonReentrant {}
+
+    function estimateWithdrawalTokenAmount() external nonReentrant {}
+
+    function initateWithdrawal() external nonReentrant {}
+
+    function completeWithdrawal() external nonReentrant {}
+
+    function pricePerShare() external nonReentrant {}
+
+    function totalValueLocked() external nonReentrant {}
+
+    function balanceOf() external nonReentrant {}
 }
