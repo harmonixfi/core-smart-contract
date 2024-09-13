@@ -1,0 +1,35 @@
+node_modules
+.env
+
+# Hardhat files
+/cache
+/artifacts
+
+# TypeChain files
+/typechain
+/typechain-types
+
+# solidity-coverage files
+/coverage
+/coverage.json
+contracts/artifacts
+contracts/extensions/artifacts
+contracts/artifacts
+.deps/npm
+contracts/vaults/artifacts
+contracts/interfaces/artifacts
+contracts/lib/artifacts
+contracts/oracles/artifacts
+contracts/strategies/artifacts
+contracts/structs/artifacts
+package-lock.json
+yarn.lock
+set_env.sh
+test-scripts/
+contracts/vaults/deltaNeutral/strategies/artifacts
+contracts/vaults/deltaNeutral/artifacts
+contracts/vaults/stableUsdc/artifacts
+.states
+hardhat.config.ts
+contracts/vaults/restakingDeltaNeutral/KelpZircuit/artifacts
+metrics
