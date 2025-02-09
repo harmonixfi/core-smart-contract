@@ -115,14 +115,9 @@ contract DeltaNeutralDepositProxy is Initializable, ReentrancyGuardUpgradeable {
         bytes memory encodedFunctionCall = abi.encodePacked(signature, encodedParameter);
 
         IFundContract(fundContract).fundFlowsCall(encodedFunctionCall);
-        // currentRound++;
+        currentRound++;
 
         emit RequestDeposit(eth_amount);
-    }
-
-    function updateRound(uint256 _currentRound) external nonReentrant {
-        require(msg.sender == admin, "INVALID_ADMIN");
-        currentRound = _currentRound;
     }
 
     function depositToFundContract() external nonReentrant {
@@ -138,9 +133,9 @@ contract DeltaNeutralDepositProxy is Initializable, ReentrancyGuardUpgradeable {
         // track after
         uint256 afterBearingTokenBalance = IERC20(bearingToken).balanceOf(address(this));
 
-        uint256 receivedBearingTokenBance = afterBearingTokenBalance - prevBearingTokenBalance;
+        uint256 receivedBearingTokenBalance = afterBearingTokenBalance - prevBearingTokenBalance;
 
-        _distributeBearingToken(receivedBearingTokenBance);
+        _distributeBearingToken(receivedBearingTokenBalance);
         isNavUpdateProcessing = false;
 
         emit DepositedToFundContract();
