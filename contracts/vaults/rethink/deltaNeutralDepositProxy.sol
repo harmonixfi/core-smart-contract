@@ -133,9 +133,9 @@ contract DeltaNeutralDepositProxy is Initializable, ReentrancyGuardUpgradeable {
         // track after
         uint256 afterBearingTokenBalance = IERC20(bearingToken).balanceOf(address(this));
 
-        uint256 receivedBearingTokenBance = afterBearingTokenBalance - prevBearingTokenBalance;
+        uint256 receivedBearingTokenBalance = afterBearingTokenBalance - prevBearingTokenBalance;
 
-        _distributeBearingToken(receivedBearingTokenBance);
+        _distributeBearingToken(receivedBearingTokenBalance);
         isNavUpdateProcessing = false;
 
         emit DepositedToFundContract();
