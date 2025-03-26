@@ -17,7 +17,7 @@ let deployer: Signer;
 
 async function deployMockAsset(
   tokenName: string,
-  reciver: Signer,
+  receiver: Signer,
   decimals: number
 ) {
   let MockERC20Factory;
