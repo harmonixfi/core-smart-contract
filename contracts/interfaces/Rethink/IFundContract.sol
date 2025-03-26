@@ -7,7 +7,7 @@ interface IFundContract {
 		uint256 withdrawFee;
 		uint256 performanceFee;
 		uint256 managementFee;
-		uint256 performaceHurdleRateBps;
+		uint256 performanceHurdleRateBps;
 		address baseToken;
 		address safe; //TODO: needs to be set after safe creation
 		bool isExternalGovTokenInUse;
