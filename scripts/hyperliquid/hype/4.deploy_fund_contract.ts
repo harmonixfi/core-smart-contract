@@ -10,14 +10,6 @@ console.log("chainId ", chainId);
 let fundContract: FundContract;
 let deployer: Signer;
 const wHypeAddress = WHYPE_ADDRESS[chainId] || AddressZero;
-// testnet
-// const UPGRADEABLE_PROXY = "0x98870db3d3c8577dDb58835c59420646b1634205";
-// const contractAdmin = "0xB53d2A2E935B4BD88Ddd748D6fe3170c78B2bA07";
-// const fundStorageContract = "0xBbB27658A1051a48CE6CED858C4cAEe4B35A8fB9";
-// const balanceContract = "0xf768d02F06b242aD58B1b3202B7C3C4BCbF0F2D0";
-// const fundNavContract = "0x48E94D68fe260c13ACBe2356721d0884d9Ea9b82";
-// const bearingTokenName = "haHYPE_Test";
-// const bearingTokenSymbol = "haHYPE_Test";
 
 // mainnet
 const UPGRADEABLE_PROXY = "0xFde5B0626fC80E36885e2fA9cD5ad9d7768D725c";

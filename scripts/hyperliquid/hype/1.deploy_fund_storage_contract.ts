@@ -10,10 +10,6 @@ console.log("chainId ", chainId);
 let fundStorage: FundStorage;
 let deployer: Signer;
 
-// testnet
-// const UPGRADEABLE_PROXY = "0xBbB27658A1051a48CE6CED858C4cAEe4B35A8fB9";
-// const contractAdmin = "0xB53d2A2E935B4BD88Ddd748D6fe3170c78B2bA07";
-
 //mainnet
 const UPGRADEABLE_PROXY = "";
 const contractAdmin = "0xa3e2e81079bf3d4f708be4c6a6897e82749424c6";

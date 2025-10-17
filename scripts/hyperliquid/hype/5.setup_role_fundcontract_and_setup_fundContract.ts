@@ -9,11 +9,6 @@ const adminPrivateKey = process.env.HYPE_V3_ADMIN_PRIVATE_KEY || "";
 let fundStorageContract: FundStorage;
 let fundContract: FundContract;
 
-// testnet
-// const fundStorageAddress = "0xBbB27658A1051a48CE6CED858C4cAEe4B35A8fB9";
-// const fundContractAddress = "0x98870db3d3c8577dDb58835c59420646b1634205";
-// const feeReceiverAddress = "0xB53d2A2E935B4BD88Ddd748D6fe3170c78B2bA07";
-
 // mainnet
 const fundStorageAddress = "0x933E97cA3F892411a4083D91Fa29D056FD65D270";
 const fundContractAddress = "0xFde5B0626fC80E36885e2fA9cD5ad9d7768D725c";

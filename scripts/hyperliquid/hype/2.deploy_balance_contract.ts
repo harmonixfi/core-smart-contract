@@ -9,11 +9,6 @@ console.log("chainId ", chainId);
 
 let balanceContract: BalanceContract;
 let deployer: Signer;
-// testnet
-// const UPGRADEABLE_PROXY = "0xf768d02F06b242aD58B1b3202B7C3C4BCbF0F2D0";
-// const contractAdmin = "0xB53d2A2E935B4BD88Ddd748D6fe3170c78B2bA07";
-// const contractOperator = "0xF4aF6504462E5D574EDBdB161F1063633CCa0274";
-// const contractApprover = "0xB53d2A2E935B4BD88Ddd748D6fe3170c78B2bA07";
 
 //mainnet
 const UPGRADEABLE_PROXY = "";

@@ -9,9 +9,6 @@ console.log("chainId ", chainId);
 
 let fundNavContract: PerpDexFundNavContract;
 let deployer: Signer;
-// testnet
-// const UPGRADEABLE_PROXY = "0x48E94D68fe260c13ACBe2356721d0884d9Ea9b82";
-// const contractAdmin = "0xB53d2A2E935B4BD88Ddd748D6fe3170c78B2bA07";
 
 // mainnet
 const UPGRADEABLE_PROXY = "";
