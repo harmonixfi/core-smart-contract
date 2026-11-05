@@ -31,6 +31,7 @@ contract PoolFactory is Initializable, RockOnyxAccessControl, ReentrancyGuardUpg
     }
 
     function removeVault(address vault) external nonReentrant {
+        _auth(ROCK_ONYX_ADMIN_ROLE);
         require(registeredVaults[vault], "Vault not registered");
 
         registeredVaults[vault] = false;
